@@ -1,5 +1,3 @@
-// file: models/index.js
-
 const { Sequelize, DataTypes } = require('sequelize');
 const sequelize = require('../config/db');
 const fs = require('fs');
@@ -18,80 +16,73 @@ fs.readdirSync(__dirname)
   });
 
 // ======================================================
-// ===          DEFINISI RELASI ANTAR MODEL           ===
+// ===         DEFINISI RELASI ANTAR MODEL           ===
 // ======================================================
 
-// --- Relasi Akun dan Peran (Users & Roles) ---
+// --- Relasi Akun dan Peran (Users, Roles, Pegawai) ---
 db.Role.hasMany(db.User, { foreignKey: 'id_role' });
 db.User.belongsTo(db.Role, { foreignKey: 'id_role' });
 
+db.User.hasOne(db.Pegawai, { foreignKey: 'id_user', as: 'pegawai' });
+db.Pegawai.belongsTo(db.User, { foreignKey: 'id_user' });
+
 db.User.hasOne(db.WaliKamar, { foreignKey: 'id_user' });
 db.WaliKamar.belongsTo(db.User, { foreignKey: 'id_user' });
-
-db.User.hasOne(db.DisgiatAsrama, { foreignKey: 'id_user' });
-db.DisgiatAsrama.belongsTo(db.User, { foreignKey: 'id_user' });
 
 db.User.hasOne(db.Ortu, { foreignKey: 'id_user' });
 db.Ortu.belongsTo(db.User, { foreignKey: 'id_user' });
 
 
-// --- Relasi Asrama, Kamar, dan Santri ---
-db.Asrama.hasMany(db.Kamar, { foreignKey: 'id_asrama' });
-db.Kamar.belongsTo(db.Asrama, { foreignKey: 'id_asrama' });
+// --- Relasi Pegawai dan Jabatan ---
+db.Jabatan.hasMany(db.Pegawai, { foreignKey: 'id_jabatan' });
+db.Pegawai.belongsTo(db.Jabatan, { foreignKey: 'id_jabatan' });
 
-db.WaliKamar.hasMany(db.Kamar, { foreignKey: 'id_wali_kamar' });
-db.Kamar.belongsTo(db.WaliKamar, { foreignKey: 'id_wali_kamar' });
 
+// --- Relasi Pegawai dan Absensi (BARU DITAMBAHKAN) ---
+db.Pegawai.hasMany(db.AbsenPegawai, { foreignKey: 'id_pegawai' });
+db.AbsenPegawai.belongsTo(db.Pegawai, { foreignKey: 'id_pegawai' });
+
+// Relasi untuk mencatat siapa admin yang menginput absensi
+db.User.hasMany(db.AbsenPegawai, { foreignKey: 'diinput_oleh' });
+db.AbsenPegawai.belongsTo(db.User, { foreignKey: 'diinput_oleh', as: 'admin_input' });
+
+
+// --- Relasi Santri ---
 db.Santri.belongsTo(db.Kelas, { foreignKey: 'id_kelas' });
 db.Kelas.hasMany(db.Santri, { foreignKey: 'id_kelas' });
 
 db.Santri.belongsTo(db.Ortu, { foreignKey: 'id_ortu' });
 db.Ortu.hasMany(db.Santri, { foreignKey: 'id_ortu' });
 
-db.Santri.belongsTo(db.Asrama, { foreignKey: 'id_asrama' });
-db.Asrama.hasMany(db.Santri, { foreignKey: 'id_asrama' });
 
-db.Santri.belongsTo(db.Kamar, { foreignKey: 'id_kamar' });
-db.Kamar.hasMany(db.Santri, { foreignKey: 'id_kamar' });
-
-
-// --- Relasi Lain-lain (Prestasi, Pelanggaran, Izin, dll) ---
-db.Santri.hasMany(db.Prestasi, { foreignKey: 'id_santri' });
-db.Prestasi.belongsTo(db.Santri, { foreignKey: 'id_santri' });
-
-db.Santri.hasMany(db.Hafalan, { foreignKey: 'id_santri' });
-db.Hafalan.belongsTo(db.Santri, { foreignKey: 'id_santri' });
-
-db.Santri.hasMany(db.DetailSakit, { foreignKey: 'id_santri' });
-db.DetailSakit.belongsTo(db.Santri, { foreignKey: 'id_santri' });
-
-// Relasi Izin Asrama
-// DetailIzinAsrama adalah model pusat, bukan sekadar tabel penghubung
-db.Santri.hasMany(db.DetailIzinAsrama, { foreignKey: 'id_santri' });
-db.IzinAsrama.hasMany(db.DetailIzinAsrama, { foreignKey: 'id_izin_asrama' });
-
-db.DetailIzinAsrama.belongsTo(db.Santri, { foreignKey: 'id_santri', as: 'Santri' });
-db.DetailIzinAsrama.belongsTo(db.IzinAsrama, { foreignKey: 'id_izin_asrama' });
-
-// --- BAGIAN YANG DIPERBAIKI ---
-// Mengganti relasi Pelanggaran Asrama menjadi One-to-Many
-db.Santri.hasMany(db.DetailPelanggaranAsrama, { foreignKey: 'id_santri' });
-db.DetailPelanggaranAsrama.belongsTo(db.Santri, { foreignKey: 'id_santri' });
-
-db.PelanggaranAsrama.hasMany(db.DetailPelanggaranAsrama, { foreignKey: 'id_pelanggaran' });
-db.DetailPelanggaranAsrama.belongsTo(db.PelanggaranAsrama, { foreignKey: 'id_pelanggaran' });
-// --- AKHIR BAGIAN YANG DIPERBAIKI ---
-
-// Relasi Tahfidz (One-to-Many)
-db.Santri.hasMany(db.Tahfidz, { foreignKey: 'id_santri' });
-db.Tahfidz.belongsTo(db.Santri, { foreignKey: 'id_santri' });
-
-db.Surah.hasMany(db.Tahfidz, { foreignKey: 'id_surah' });
-db.Tahfidz.belongsTo(db.Surah, { foreignKey: 'id_surah' });
-
-// Relasi Absensi Kegiatan
+// --- Relasi Absensi Kegiatan Santri ---
 db.Santri.hasMany(db.AbsenKegiatan, { foreignKey: 'id_santri' });
 db.AbsenKegiatan.belongsTo(db.Santri, { foreignKey: 'id_santri' });
+db.Kegiatan.hasMany(db.AbsenKegiatan, { foreignKey: 'id_kegiatan' });
+db.AbsenKegiatan.belongsTo(db.Kegiatan, { foreignKey: 'id_kegiatan' });
+
+
+
+db.Santri.belongsTo(db.KelasSekolah, { foreignKey: 'id_kelas_sekolah' });
+db.KelasSekolah.hasMany(db.Santri, { foreignKey: 'id_kelas_sekolah' });
+
+
+// --- PENAMBAHAN: Relasi Many-to-Many antara Kelas dan Pegawai (Musyrif) ---
+db.Kelas.belongsToMany(db.Pegawai, {
+  through: db.KelasMusyrif,
+  foreignKey: 'id_kelas',
+  otherKey: 'id_pegawai',
+  as: 'musyrifs' // Alias untuk memanggil data musyrif dari kelas
+});
+
+db.Pegawai.belongsToMany(db.Kelas, {
+  through: db.KelasMusyrif,
+  foreignKey: 'id_pegawai',
+  otherKey: 'id_kelas',
+  as: 'kelasAsuhan' // Alias untuk memanggil data kelas dari pegawai
+});
+
+
 
 // Loop ini akan menjalankan semua relasi yang didefinisikan di dalam file model masing-masing
 Object.keys(db).forEach(modelName => {

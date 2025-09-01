@@ -33,20 +33,13 @@ app.get('/', (req, res) => {
 // Pendaftaran semua rute API
 app.use('/api/jadwal-rutin', allRoutes.jadwalRutin);
 app.use('/api/kegiatan-tambahan', allRoutes.kegiatanTambahan);
-app.use('/api/spp', allRoutes.spp);
-app.use('/api/pelanggaran-asrama', allRoutes.pelanggaranAsrama);
 app.use('/api/santri', allRoutes.santri);
-app.use('/api/akun', allRoutes.manageAkun);
-app.use('/api/kamar', allRoutes.manageKamar); // <-- TAMBAHKAN BARIS INI
 app.use('/api/absensi', allRoutes.absensi); // <-- TAMBAHKAN BARIS INI
 app.use('/api/auth', allRoutes.auth); // <-- TAMBAHKAN BARIS INI
-app.use('/api/hafalan', allRoutes.hafalan); // <-- TAMBAHKAN BARIS INI
-app.use('/api/pelanggaran-wk', allRoutes.pelanggaranWaliKamar);
-app.use('/api/perizinan-wk', allRoutes.perizinanWaliKamar);
-app.use('/api/prestasi-wk', allRoutes.prestasiWaliKamar);
-app.use('/api/tahfidz-wk', allRoutes.tahfidzWaliKamar);
 app.use('/api/rekap-wk', allRoutes.rekapWaliKamar);
-app.use('/api/perizinan-dga', allRoutes.perizinanDGA); // <-- TAMBAHKAN BARIS INI
+app.use('/api', allRoutes.pegawai); // <-- TAMBAHKAN BARIS INI
+app.use('/api', allRoutes.musyrif); // <-- TAMBAHKAN BARIS INI
+
 
 
 // --- SINKRONISASI DATABASE DAN JALANKAN SERVER ---

@@ -34,31 +34,39 @@ const menuItems = [
         icon: FiCalendar,
         href: "/adminAsrama/kegiatan-tambahan",
       },
-      {
-        name: "Pelanggaran",
-        icon: FiAlertTriangle,
-        href: "/adminAsrama/pelanggaran",
-      },
+      // {
+      //   name: "Pelanggaran",
+      //   icon: FiAlertTriangle,
+      //   href: "/adminAsrama/pelanggaran",
+      // },
     ],
   },
   {
     group: "Manajemen Data",
     items: [
-      { name: "Santri", icon: FiUsers, href: "/adminAsrama/santri" },
-      { name: "Kamar", icon: FiGrid, href: "/adminAsrama/kamar" },
+      { name: "Data Santri", icon: FiUsers, href: "/adminAsrama/santri" },
+      { name: "Santri - Musyrif", icon: FiGrid, href: "/adminAsrama/manageMusyrif" },
     ],
   },
   {
     group: "Manajemen Akun",
     items: [
-      { name: "Wali Kamar", icon: FiUserCheck, href: "/adminAsrama/wali-kamar" },
-      { name: "Disgiat Asrama", icon: FiBox, href: "/adminAsrama/disgiat-asrama" },
-      {
-        name: "Div. Inventaris",
-        icon: FiBriefcase,
-        href: "/adminAsrama/div-inventaris",
-      },
-      { name: "Direktur", icon: FiBriefcase, href: "/adminAsrama/direktur" },
+      { name: "Pegawai", icon: FiUserCheck, href: "/adminAsrama/pegawai" },
+      // { name: "Disgiat Asrama", icon: FiBox, href: "/adminAsrama/disgiat-asrama" },
+      // {
+      //   name: "Div. Inventaris",
+      //   icon: FiBriefcase,
+      //   href: "/adminAsrama/div-inventaris",
+      // },
+      // { name: "Direktur", icon: FiBriefcase, href: "/adminAsrama/direktur" },
+    ],
+  },
+    {
+    group: "Rekap",
+    items: [
+      { name: "Data Kehadiran Santri", icon: FiUsers, href: "/adminAsrama/kehadiran-santri" },
+      { name: "Data Kehadiran Pegawai", icon: FiUsers, href: "/adminAsrama/kehadiran-pegawai" },
+
     ],
   },
 ];
