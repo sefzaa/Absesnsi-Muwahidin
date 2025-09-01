@@ -1,0 +1,34 @@
+###
+### Login Admin Putra
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+    "username": "admin-putra",
+    "password": "admin"
+}
+
+###
+### Login Admin Putri
+POST http://localhost:3000/api/auth/login
+Content-Type: application/json
+
+{
+    "username": "admin-putri",
+    "password": "password123"
+}
+
+###
+### Ambil Data Santri dengan Token Admin Putra
+# Ganti TOKEN_ADMIN_PUTRA dengan accessToken yang didapat dari respons login
+GET http://localhost:3000/api/santri
+Content-Type: application/json
+x-access-token: <TOKEN_ADMIN_PUTRA>
+
+###
+### Ambil Data Santri dengan Token Admin Putri
+# Ganti TOKEN_ADMIN_PUTRI dengan accessToken yang didapat dari respons login
+GET http://localhost:3000/api/santri
+Content-Type: application/json
+x-access-token: <TOKEN_ADMIN_PUTRI>
+

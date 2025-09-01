@@ -1,0 +1,21 @@
+models/
+├── index.js          // <-- Gunakan kode baru di atas
+├── user.model.js     // (Bisa tetap di sini atau dipindah)
+├── role.model.js     // (Bisa tetap di sini atau dipindah)
+│
+├── akademik/
+│   ├── kelas.model.js
+│   └── prestasi.model.js
+│
+├── asrama/
+│   ├── asrama.model.js
+│   ├── kamar.model.js
+│   └── waliKamar.model.js
+│
+├── kesehatan/
+│   ├── obat.model.js
+│   └── detailSakit.model.js
+│
+└── perizinan/
+    ├── perizinanDg.model.js
+    └── izinAsrama.model.js
