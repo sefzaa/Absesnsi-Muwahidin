@@ -9,7 +9,7 @@ import {
 } from 'react-icons/fi';
 
 // =================================================================
-// BAGIAN 1: KOMPONEN UI LENGKAP (FIX MODAL TIDAK MUNCUL)
+// BAGIAN 1: KOMPONEN UI
 // =================================================================
 
 const Modal = ({ isOpen, onClose, title, icon, children, maxWidth = 'max-w-md' }) => {
@@ -25,7 +25,7 @@ const Modal = ({ isOpen, onClose, title, icon, children, maxWidth = 'max-w-md' }
                     leaveFrom="opacity-100"
                     leaveTo="opacity-0"
                 >
-                    <div className="fixed inset-0 bg-black bg-opacity-60" />
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
                 </Transition.Child>
 
                 <div className="fixed inset-0 overflow-y-auto">
@@ -72,7 +72,7 @@ const NotificationModal = ({ notification, onClose }) => {
         <Transition appear show={notification.isOpen} as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={notification.type !== 'loading' ? onClose : () => {}}>
                 <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-                    <div className="fixed inset-0 bg-black bg-opacity-60" />
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
                 </Transition.Child>
                 <div className="fixed inset-0 overflow-y-auto">
                     <div className="flex min-h-full items-center justify-center p-4 text-center">
@@ -190,17 +190,20 @@ export default function JamPelajaranPage() {
     };
 
     return (
-        <div className="bg-white p-6 rounded-lg shadow-md">
+        <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
             <NotificationModal notification={notification} onClose={closeNotification} />
 
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
                 <h2 className="text-xl font-bold text-gray-800">Pengaturan Jam Pelajaran</h2>
-                <button onClick={() => openModal('add')} className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
+                <button onClick={() => openModal('add')} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-md shadow-sm font-semibold hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors">
                     <FiPlusSquare /> <span>Tambah Jam</span>
                 </button>
             </div>
             
-            <div className="overflow-x-auto">
+            {/* --- PERBAIKAN RESPONSIVE DIMULAI DI SINI --- */}
+
+            {/* Tampilan Tabel untuk Desktop (md dan lebih besar) */}
+            <div className="hidden md:block overflow-x-auto">
                 <table className="min-w-full divide-y divide-gray-200">
                     <thead className="bg-gray-50">
                         <tr>
@@ -221,27 +224,51 @@ export default function JamPelajaranPage() {
                                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.jam_selesai.substring(0, 5)}</td>
                                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-right">
                                         <div className="flex items-center justify-end gap-4">
-                                            <button onClick={() => openModal('edit', item)} className="text-blue-600 hover:text-blue-800 transition-colors" title="Edit">
-                                                <FiEdit size={18} />
-                                            </button>
-                                            <button onClick={() => openModal('delete', item)} className="text-red-600 hover:text-red-800 transition-colors" title="Hapus">
-                                                <FiTrash2 size={18} />
-                                            </button>
+                                            <button onClick={() => openModal('edit', item)} className="text-blue-600 hover:text-blue-800 transition-colors" title="Edit"><FiEdit size={18} /></button>
+                                            <button onClick={() => openModal('delete', item)} className="text-red-600 hover:text-red-800 transition-colors" title="Hapus"><FiTrash2 size={18} /></button>
                                         </div>
                                     </td>
                                 </tr>
                             ))
                         ) : (
-                            <tr>
-                                <td colSpan="4" className="text-center py-10 text-gray-500">
-                                    <p>Belum ada data jam pelajaran.</p>
-                                    <p className="text-sm">Silakan klik tombol "Tambah Jam" untuk memulai.</p>
-                                </td>
-                            </tr>
+                            <tr><td colSpan="4" className="text-center py-10 text-gray-500"><p>Belum ada data jam pelajaran.</p><p className="text-sm">Silakan klik tombol "Tambah Jam" untuk memulai.</p></td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
+
+            {/* Tampilan Kartu untuk Mobile (di bawah md) */}
+            <div className="grid grid-cols-1 gap-4 md:hidden">
+                {isLoading ? (
+                    <div className="text-center py-10"><FiLoader className="animate-spin inline-block mr-2" /> Memuat data...</div>
+                ) : jamPelajaranList.length > 0 ? (
+                    jamPelajaranList.map((item) => (
+                        <div key={item.id_jam_pelajaran} className="bg-white p-4 rounded-lg shadow border border-gray-200 space-y-3">
+                            <div className="flex justify-between items-start">
+                                <p className="font-bold text-gray-900 text-lg">{item.nama_jam}</p>
+                                <div className="flex items-center gap-2">
+                                    <button onClick={() => openModal('edit', item)} className="text-blue-600 hover:text-blue-800 p-1" title="Edit"><FiEdit size={18} /></button>
+                                    <button onClick={() => openModal('delete', item)} className="text-red-600 hover:text-red-800 p-1" title="Hapus"><FiTrash2 size={18} /></button>
+                                </div>
+                            </div>
+                            <div className="border-t border-gray-100 pt-3 text-sm space-y-2">
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">Mulai:</span>
+                                    <span className="font-medium text-gray-800">{item.jam_mulai.substring(0, 5)}</span>
+                                </div>
+                                <div className="flex justify-between">
+                                    <span className="text-gray-500">Selesai:</span>
+                                    <span className="font-medium text-gray-800">{item.jam_selesai.substring(0, 5)}</span>
+                                </div>
+                            </div>
+                        </div>
+                    ))
+                ) : (
+                    <div className="text-center py-10 text-gray-500"><p>Belum ada data jam pelajaran.</p><p className="text-sm">Silakan klik tombol "Tambah Jam" untuk memulai.</p></div>
+                )}
+            </div>
+
+            {/* --- AKHIR PERBAIKAN RESPONSIVE --- */}
 
             <Modal isOpen={modalState.type === 'add' || modalState.type === 'edit'} onClose={closeModal} title={modalState.type === 'add' ? 'Tambah Jam Pelajaran' : 'Edit Jam Pelajaran'} icon={<FiClock size={20} className="text-blue-500" />} maxWidth="max-w-lg">
                 <form onSubmit={handleSubmit} className="space-y-4">

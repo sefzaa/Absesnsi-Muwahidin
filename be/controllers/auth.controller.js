@@ -57,7 +57,12 @@ exports.login = async (req, res) => {
                         jabatan: 'tu', // Kirim flag jabatan TU ke frontend
                     };
                 } 
-
+                else if (namaJabatan === 'Guru') {
+                    extraInfo = {
+                        id_pegawai: pegawai.id_pegawai,
+                        jabatan: 'guru', // Kirim flag jabatan TU ke frontend
+                    };
+                }
                 else {
                     // Jabatan lain (selain Musyrif & TU) tidak diizinkan login melalui rute ini
                     return res.status(403).send({ message: 'Jabatan Anda tidak memiliki akses.' });

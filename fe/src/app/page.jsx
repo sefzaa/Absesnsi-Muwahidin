@@ -37,18 +37,22 @@ export default function LoginPage() {
             
             login(data.accessToken, data);
 
-            // --- ▼▼▼ MODIFIKASI: Arahkan berdasarkan role dan jabatan baru ▼▼▼ ---
-            if (data.slug === 'pegawai' && data.jabatan === 'musyrif') {
-                router.push('/musyrif');
-            } else if (data.slug === 'pegawai' && data.jabatan === 'tu') {
-                router.push('/tu'); // <-- Arahkan ke dasbor TU
-            } else if (data.slug === 'admin-asrama') {
-                router.push('/adminAsrama');
-            } else {
-                // Redirect default jika ada role lain yang tidak dikenal
-                router.push('/');
-            }
-            // --- ▲▲▲ Akhir Modifikasi ---
+            // --- ▼▼▼ MODIFIKASI: Arahkan berdasarkan role dan jabatan baru ▼▼▼ ---
+            if (data.slug === 'pegawai' && data.jabatan === 'musyrif') {
+                router.push('/musyrif');
+            } else if (data.slug === 'pegawai' && data.jabatan === 'tu') {
+                router.push('/tu'); // <-- Arahkan ke dasbor TU
+            } 
+            else if (data.slug === 'pegawai' && data.jabatan === 'guru') {
+                router.push('/guru'); // <-- Arahkan ke dasbor TU
+            }
+            else if (data.slug === 'admin-asrama') {
+                router.push('/adminAsrama');
+            } else {
+                // Redirect default jika ada role lain yang tidak dikenal
+                router.push('/');
+            }
+            // --- ▲▲▲ Akhir Modifikasi ---
 
         } catch (err) {
             setError(err.message);
@@ -57,14 +61,17 @@ export default function LoginPage() {
         }
     };
 
-
     return (
         <div className="flex min-h-screen items-center justify-center bg-gray-50 p-4">
             <div className="w-full max-w-md rounded-lg bg-white p-8 shadow-lg">
-                <h2 className="mb-6 text-center text-3xl font-bold text-gray-900">Masuk ke SIM Pesantren</h2>
+                <h2 className="mb-6 text-center text-3xl font-bold text-gray-900">
+                    Masuk ke SIM Pesantren
+                </h2>
                 <form className="space-y-6" onSubmit={handleLogin}>
                     <div>
-                        <label className="text-sm font-medium text-gray-700">Username</label>
+                        <label className="text-sm font-medium text-gray-700">
+                            Username
+                        </label>
                         <input
                             type="text"
                             required
@@ -74,7 +81,9 @@ export default function LoginPage() {
                         />
                     </div>
                     <div>
-                        <label className="text-sm font-medium text-gray-700">Password</label>
+                        <label className="text-sm font-medium text-gray-700">
+                            Password
+                        </label>
                         <input
                             type="password"
                             required
@@ -83,14 +92,20 @@ export default function LoginPage() {
                             className="mt-1 block w-full rounded-md border border-gray-300 px-3 py-2 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
                         />
                     </div>
-                    {error && <div className="text-center text-sm font-medium text-red-600">{error}</div>}
+                    
+                    {error && (
+                        <div className="text-center text-sm font-medium text-red-600">
+                            {error}
+                        </div>
+                    )}
+                    
                     <div>
                         <button
                             type="submit"
                             disabled={isLoading}
                             className="flex w-full items-center justify-center rounded-md border border-transparent bg-indigo-600 px-4 py-2 text-sm font-medium text-white shadow-sm hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
                         >
-                            {isLoading ? <FiLoader className="mr-2 animate-spin" /> : null}
+                            {isLoading && <FiLoader className="mr-2 animate-spin" />}
                             Masuk
                         </button>
                     </div>

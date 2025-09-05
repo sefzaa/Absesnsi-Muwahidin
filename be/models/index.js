@@ -96,6 +96,20 @@ db.KelasSekolah.hasMany(db.Santri, { foreignKey: 'id_kelas_sekolah', as: 'santri
 
 
 
+// Tambahkan relasi untuk AbsenSekolah
+// Relasi AbsenSekolah
+db.AbsenSekolah.belongsTo(db.KelasSekolah, { foreignKey: 'id_kelas_sekolah' });
+db.KelasSekolah.hasMany(db.AbsenSekolah, { foreignKey: 'id_kelas_sekolah' });
+
+db.AbsenSekolah.belongsTo(db.JamPelajaran, { foreignKey: 'id_jam_pelajaran' });
+db.JamPelajaran.hasMany(db.AbsenSekolah, { foreignKey: 'id_jam_pelajaran' });
+
+db.AbsenSekolah.belongsTo(db.Santri, { foreignKey: 'id_santri' });
+db.Santri.hasMany(db.AbsenSekolah, { foreignKey: 'id_santri' });
+
+db.AbsenSekolah.belongsTo(db.Pegawai, { foreignKey: 'id_pegawai' });
+db.Pegawai.hasMany(db.AbsenSekolah, { foreignKey: 'id_pegawai' });
+
 
 
 // Loop ini akan menjalankan semua relasi yang didefinisikan di dalam file model masing-masing

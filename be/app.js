@@ -43,7 +43,10 @@ app.use('/api/kehadiran-santri', allRoutes.kehadiranSantri); // <-- TAMBAHKAN BA
 app.use('/api/absen-pegawai', allRoutes.absenPegawai); // <-- TAMBAHKAN BARIS INI
 app.use('/api/jam-pelajaran', allRoutes.jamPelajaran); // <-- TAMBAHKAN BARIS INI
 app.use('/api/kelas-sekolah', allRoutes.kelasSekolah); // <-- TAMBAHKAN BARIS INI
-
+app.use('/api/absen-sekolah', allRoutes.absenSekolah); // <-- TAMBAHKAN BARIS INI
+app.use('/api/riwayat-absen', allRoutes.riwayatAbsenSekolah); // <-- TAMBAHKAN BARIS INI
+app.use('/api/rekap-absen-sekolah', allRoutes.rekapAbsenSekolah); // <-- TAMBAHKAN BARIS INI
+app.use('/api/rekap-absen-pegawai', allRoutes.rekapAbsenPegawai); // <-- TAMBAHKAN BARIS INI
 
 
 // --- SINKRONISASI DATABASE DAN JALANKAN SERVER ---

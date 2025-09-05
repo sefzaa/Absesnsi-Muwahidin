@@ -13,6 +13,11 @@ const kehadiranSantriRoutes = require("./kehadiranSantri.js");
 const AbsenPegawaiRoutes = require("./absenPegawai.js");
 const jamPelajaranRoutes = require("./jamPelajaran.js");
 const kelasSekolahRoutes = require("./kelasSekolah.js");
+const absenSekolahRoutes = require("./absenSekolah.js");
+const riwayatAbsenSekolahRoutes = require("./riwayatAbsenSekolah.js");
+const rekapAbsenSekolahRoutes = require("./rekapAbsenSekolah.js");
+const rekapAbsenPegawaiRoutes = require("./rekapAbsenPegawai.js");
+
 
 // Buat objek untuk menampung semua rute
 const router = {};
@@ -30,6 +35,10 @@ router.kehadiranSantri = kehadiranSantriRoutes;
 router.absenPegawai = AbsenPegawaiRoutes;
 router.jamPelajaran = jamPelajaranRoutes;
 router.kelasSekolah = kelasSekolahRoutes;
+router.absenSekolah = absenSekolahRoutes;
+router.riwayatAbsenSekolah = riwayatAbsenSekolahRoutes;
+router.rekapAbsenSekolah = rekapAbsenSekolahRoutes;
+router.rekapAbsenPegawai = rekapAbsenPegawaiRoutes;
 
 
 // Ekspor objek yang berisi semua rute

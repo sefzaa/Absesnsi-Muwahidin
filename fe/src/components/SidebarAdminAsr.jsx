@@ -59,13 +59,14 @@ const menuItems = [
       //   href: "/adminAsrama/div-inventaris",
       // },
       // { name: "Direktur", icon: FiBriefcase, href: "/adminAsrama/direktur" },
+      { name: "Orang Tua", icon: FiUserCheck, href: "/adminAsrama/orangtua" },
+
     ],
   },
     {
     group: "Rekap",
     items: [
       { name: "Data Kehadiran Santri", icon: FiUsers, href: "/adminAsrama/kehadiran-santri" },
-      { name: "Data Kehadiran Pegawai", icon: FiUsers, href: "/adminAsrama/kehadiran-pegawai" },
 
     ],
   },
