@@ -1,0 +1,154 @@
+"use client";
+
+import { Fragment } from "react";
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import clsx from "clsx";
+import { Menu, Transition } from "@headlessui/react";
+import {
+  FiHome,
+  FiUserCheck,
+  FiAward,
+  FiAlertTriangle,
+  FiSend,
+  FiBookOpen,
+  FiFileText,
+  FiLogOut,
+} from "react-icons/fi";
+import { useAuth } from "@/app/AuthContext";
+
+// REVISI: Definisikan URL backend untuk gambar
+const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
+
+const menuItems = [
+  {
+    group: "Main Menu",
+    items: [
+      { name: "Dashboard", icon: FiHome, href: "/musyrif" },
+      { name: "Absensi", icon: FiUserCheck, href: "/musyrif/absensi" },
+      // { name: "Tahfidz", icon: FiBookOpen, href: "/wali-kamar/tahfidz" },
+      // { name: "Hafalan", icon: FiBookOpen, href: "/wali-kamar/hafalan" },
+      // { name: "Perizinan", icon: FiSend, href: "/wali-kamar/perizinan" },
+      // { name: "Prestasi", icon: FiAward, href: "/wali-kamar/prestasi" },
+      // {
+      //   name: "Pelanggaran",
+      //   icon: FiAlertTriangle,
+      //   href: "/wali-kamar/pelanggaran",
+      // },
+      { name: "Rekap", icon: FiFileText, href: "/musyrif/rekap" },
+    ],
+  },
+];
+
+export default function SidebarMusyrif({ setSidebarOpen, user }) {
+  const pathname = usePathname();
+  const { logout } = useAuth();
+
+  const handleLinkClick = () => {
+    if (setSidebarOpen) {
+      setSidebarOpen(false);
+    }
+  };
+  
+  let displayTitle = '...';
+  if (user) {
+    if (user.role === 'Pegawai' && user.jabatan) {
+      // Jika rolenya 'pegawai' dan punya jabatan, tampilkan jabatannya
+      displayTitle = user.jabatan;
+    } else {
+      // Jika tidak, tampilkan nama rolenya (misal: "Admin Asrama")
+      displayTitle = user.role_name || user.role;
+    }
+  }
+
+  // REVISI: Buat URL avatar yang lengkap
+  const avatarUrl = user && user.avatar 
+    ? `${backendUrl}/${user.avatar}` 
+    : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=880&q=80";
+
+  return (
+    <aside className="bg-white w-full h-full flex flex-col">
+      {/* Header Sidebar dengan Profil Pengguna */}
+      <div className="p-4 shadow-sm">
+        <Menu as="div" className="relative">
+          <Menu.Button className="w-full flex items-center gap-3 text-left p-2 rounded-lg hover:bg-gray-100 transition-colors">
+            {/* REVISI: Gunakan avatarUrl dinamis */}
+            <img
+              src={avatarUrl}
+              alt="User avatar"
+              className="h-10 w-10 rounded-full object-cover"
+            />
+            <div className="flex-1">
+              <p className="font-semibold text-sm text-gray-800">
+                {user ? user.nama : 'Memuat...'}
+              </p>
+              <p className="text-xs text-gray-500">
+                {displayTitle}
+              </p>
+            </div>
+          </Menu.Button>
+          <Transition
+            as={Fragment}
+            enter="transition ease-out duration-100"
+            enterFrom="transform opacity-0 scale-95"
+            enterTo="transform opacity-100 scale-100"
+            leave="transition ease-in duration-75"
+            leaveFrom="transform opacity-100 scale-100"
+            leaveTo="transform opacity-0 scale-95"
+          >
+            <Menu.Items className="absolute z-10 mt-2 w-full origin-top-right rounded-md bg-white shadow-lg focus:outline-none">
+              <div className="py-1">
+                <Menu.Item>
+                  {({ active }) => (
+                    <button 
+                      onClick={logout} 
+                      className={clsx(
+                        'w-full text-left flex items-center gap-3 px-4 py-2 text-sm', 
+                        active ? 'bg-red-100 text-red-700' : 'text-red-600' 
+                      )}
+                    >
+                      <FiLogOut /> Logout
+                    </button>
+                  )}
+                </Menu.Item>
+              </div>
+            </Menu.Items>
+          </Transition>
+        </Menu>
+      </div>
+
+      {/* Navigasi Menu */}
+      <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
+        {menuItems.map((menuGroup) => (
+          <div key={menuGroup.group}>
+            <h2 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+              {menuGroup.group}
+            </h2>
+            <ul className="space-y-1">
+              {menuGroup.items.map((item) => (
+                <li key={item.name}>
+                  <Link
+                    href={item.href}
+                    onClick={handleLinkClick}
+                    className={clsx(
+                      "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                      {
+                        "bg-indigo-100 text-indigo-700 font-semibold":
+                          pathname === item.href,
+                        "text-gray-600 hover:bg-gray-100 hover:text-gray-900":
+                          pathname !== item.href,
+                      }
+                    )}
+                  >
+                    <item.icon size={20} />
+                    <span className="font-medium">{item.name}</span>
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))}
+      </nav>
+    </aside>
+  );
+}

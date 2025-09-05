@@ -82,7 +82,7 @@ export default function AbsensiPage() {
                                 )}
                                 
                                 <Link
-                                    href={`/wali-kamar/absensi/${kegiatan.id}`}
+                                    href={`/musyrif/absensi/${kegiatan.id}`}
                                     className={`flex items-center justify-center gap-2 w-full px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
                                         kegiatan.isCompleted
                                         ? 'bg-yellow-400 text-white hover:bg-yellow-500'

@@ -15,6 +15,9 @@ fs.readdirSync(__dirname)
     db[model.name] = model;
   });
 
+db.JamPelajaran = require('./jamPelajaran.js')(sequelize, Sequelize);
+
+
 // ======================================================
 // ===         DEFINISI RELASI ANTAR MODEL           ===
 // ======================================================
@@ -63,8 +66,7 @@ db.AbsenKegiatan.belongsTo(db.Kegiatan, { foreignKey: 'id_kegiatan' });
 
 
 
-db.Santri.belongsTo(db.KelasSekolah, { foreignKey: 'id_kelas_sekolah' });
-db.KelasSekolah.hasMany(db.Santri, { foreignKey: 'id_kelas_sekolah' });
+
 
 
 // --- PENAMBAHAN: Relasi Many-to-Many antara Kelas dan Pegawai (Musyrif) ---
@@ -81,6 +83,18 @@ db.Pegawai.belongsToMany(db.Kelas, {
   otherKey: 'id_kelas',
   as: 'kelasAsuhan' // Alias untuk memanggil data kelas dari pegawai
 });
+
+
+// --- PENAMBAHAN BARU: Relasi Kelas Sekolah ---
+db.KelasSekolah.belongsTo(db.Kelas, { foreignKey: 'id_kelas', as: 'tingkatan' });
+db.Kelas.hasMany(db.KelasSekolah, { foreignKey: 'id_kelas' });
+
+// Tambahkan alias agar bisa dipanggil oleh controller
+db.Santri.belongsTo(db.KelasSekolah, { foreignKey: 'id_kelas_sekolah', as: 'kelasSekolah' });
+db.KelasSekolah.hasMany(db.Santri, { foreignKey: 'id_kelas_sekolah', as: 'santri' });
+// -------------------------------------------
+
+
 
 
 

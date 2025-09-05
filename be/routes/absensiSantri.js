@@ -1,8 +1,8 @@
 // file: routes/absensi.js
 const express = require('express');
 const router = express.Router();
-const absensiController = require('../controllers/absensi.js');
-const { verifyToken } = require('../middleware/auth.middleware');
+const absensiController = require('../controllers/absensiSantri.js');
+const { verifyToken } = require('../middleware/auth.middleware.js');
 
 // Rute ini sudah benar, hanya perlu memastikan middleware terpasang
 router.get('/kegiatan-hari-ini', verifyToken, absensiController.getKegiatanHariIni);

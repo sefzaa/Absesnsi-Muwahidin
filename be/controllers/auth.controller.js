@@ -3,10 +3,10 @@
 const db = require('../models');
 const User = db.User;
 const Role = db.Role;
-const WaliKamar = db.WaliKamar;
-// PENAMBAHAN: Import model DisgiatAsrama
-// Pastikan nama model 'DisgiatAsrama' sesuai dengan yang Anda definisikan di /models/index.js
-const DisgiatAsrama = db.DisgiatAsrama;
+// --- ▼▼▼ PERUBAHAN: Ganti WaliKamar dengan Pegawai dan Jabatan ▼▼▼ ---
+const Pegawai = db.Pegawai;
+const Jabatan = db.Jabatan;
+// --- ▲▲▲ AKHIR PERUBAHAN ---
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -34,49 +34,54 @@ exports.login = async (req, res) => {
         let extraInfo = {};
         const userRoleSlug = user.Role.slug;
 
-        if (userRoleSlug === 'wali-kamar') {
-            const waliKamar = await WaliKamar.findOne({
+        // --- ▼▼▼ MODIFIKASI: Logika untuk Pegawai (Musyrif & TU) ▼▼▼ ---
+        if (userRoleSlug === 'pegawai') {
+            const pegawai = await Pegawai.findOne({
                 where: { id_user: user.id_user },
-                attributes: ['id_wali_kamar', 'jenis_kelamin', 'avatar']
+                include: [{ model: Jabatan, attributes: ['nama_jabatan'] }]
             });
 
-            if (waliKamar) {
-                extraInfo = {
-                    id_wali_kamar: waliKamar.id_wali_kamar,
-                    jenis_kelamin_wk: waliKamar.jenis_kelamin,
-                    avatar: waliKamar.avatar
-                };
-            } else {
-                return res.status(404).send({ message: 'Data Wali Kamar untuk user ini tidak ditemukan.' });
-            }
-        }
-        // --- ▼▼▼ MODIFIKASI BARU UNTUK DISGIAT ASRAMA ▼▼▼ ---
-        else if (userRoleSlug === 'disgiat-asrama') {
-            const disgiatAsrama = await DisgiatAsrama.findOne({
-                where: { id_user: user.id_user },
-                attributes: ['id_disgiat_asrama', 'jenis_kelamin', 'avatar']
-            });
+            if (pegawai && pegawai.Jabatan) {
+                const namaJabatan = pegawai.Jabatan.nama_jabatan;
 
-            if (disgiatAsrama) {
-                extraInfo = {
-                    id_disgiat_asrama: disgiatAsrama.id_disgiat_asrama,
-                    // Kita gunakan nama properti yang spesifik untuk menghindari tumpang tindih
-                    jenis_kelamin_disgiat: disgiatAsrama.jenis_kelamin,
-                    avatar: disgiatAsrama.avatar
-                };
+                if (namaJabatan === 'Musyrif') {
+                    extraInfo = {
+                        id_pegawai: pegawai.id_pegawai,
+                        jenis_kelamin_pegawai: pegawai.jenis_kelamin,
+                        jabatan: 'musyrif',
+                    };
+                // --- TAMBAHAN: Kondisi untuk Jabatan TU ---
+                } else if (namaJabatan === 'TU') {
+                    extraInfo = {
+                        id_pegawai: pegawai.id_pegawai,
+                        jabatan: 'tu', // Kirim flag jabatan TU ke frontend
+                    };
+                } 
+
+                else {
+                    // Jabatan lain (selain Musyrif & TU) tidak diizinkan login melalui rute ini
+                    return res.status(403).send({ message: 'Jabatan Anda tidak memiliki akses.' });
+                }
             } else {
-                return res.status(404).send({ message: 'Data Disgiat Asrama untuk user ini tidak ditemukan.' });
+                // Jika user memiliki role 'pegawai' tapi data pegawai tidak ditemukan
+                return res.status(404).send({ message: 'Data pegawai tidak ditemukan.' });
             }
         }
         // --- ▲▲▲ AKHIR MODIFIKASI ---
 
+        // Logika untuk role lain seperti admin-asrama bisa tetap di sini jika ada
+        else if (userRoleSlug === 'admin-asrama') {
+            // Logika untuk admin-asrama (jika ada data spesifik yang perlu diambil)
+            // contoh: extraInfo = { ... };
+        }
+
         const tokenPayload = {
             id: user.id_user,
             nama: user.nama,
-            jenis_kelamin: user.jenis_kelamin, // jenis_kelamin umum dari tabel User
+            jenis_kelamin: user.jenis_kelamin,
             role: user.Role.nama_role,
             slug: user.Role.slug,
-            ...extraInfo // Info spesifik role (misal: id_wali_kamar, jenis_kelamin_wk, ATAU id_disgiat_asrama, jenis_kelamin_disgiat)
+            ...extraInfo
         };
 
         const token = jwt.sign(tokenPayload, jwtSecret, { expiresIn: '24h' });

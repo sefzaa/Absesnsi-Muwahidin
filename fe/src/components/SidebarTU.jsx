@@ -6,43 +6,35 @@ import { usePathname } from "next/navigation";
 import clsx from "clsx";
 import { Menu, Transition } from "@headlessui/react";
 import {
-  FiHome,
+  FiGrid,
   FiUserCheck,
-  FiAward,
-  FiAlertTriangle,
-  FiSend,
-  FiBookOpen,
+  FiClock,
+  FiBook,
   FiFileText,
   FiLogOut,
 } from "react-icons/fi";
 import { useAuth } from "@/app/AuthContext";
 
-// REVISI: Definisikan URL backend untuk gambar
+// Definisikan URL backend untuk gambar
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
 const menuItems = [
   {
     group: "Main Menu",
     items: [
-      { name: "Dashboard", icon: FiHome, href: "/wali-kamar" },
-      { name: "Absensi", icon: FiUserCheck, href: "/wali-kamar/absensi" },
-      { name: "Tahfidz", icon: FiBookOpen, href: "/wali-kamar/tahfidz" },
-      { name: "Hafalan", icon: FiBookOpen, href: "/wali-kamar/hafalan" },
-      { name: "Perizinan", icon: FiSend, href: "/wali-kamar/perizinan" },
-      { name: "Prestasi", icon: FiAward, href: "/wali-kamar/prestasi" },
-      {
-        name: "Pelanggaran",
-        icon: FiAlertTriangle,
-        href: "/wali-kamar/pelanggaran",
-      },
-      { name: "Rekap", icon: FiFileText, href: "/wali-kamar/rekap" },
+      { name: 'Dashboard', href: '/tu', icon: FiGrid },
+      { name: 'Absen Pegawai', href: '/tu/absen', icon: FiUserCheck },
+      { name: 'Manajemen Jam Pelajaran', href: '/tu/jam-pelajaran', icon: FiClock },
+      { name: 'Manajemen Kelas', href: '/tu/kelas-sekolah', icon: FiBook },
+      { name: 'Rekap Kehadiran Santri', href: '/tu/kehadiran-santri', icon: FiFileText },
+      { name: 'Rekap Kehadiran Pegawai', href: '/tu/kehadiran-pegawai', icon: FiFileText },
     ],
   },
 ];
 
-export default function SidebarWaliKamar({ setSidebarOpen, user }) {
+export default function SidebarTU({ setSidebarOpen }) {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
 
   const handleLinkClick = () => {
     if (setSidebarOpen) {
@@ -50,9 +42,20 @@ export default function SidebarWaliKamar({ setSidebarOpen, user }) {
     }
   };
 
-  // REVISI: Buat URL avatar yang lengkap
-  const avatarUrl = user && user.avatar 
-    ? `${backendUrl}/${user.avatar}` 
+  let displayTitle = '...';
+  if (user) {
+    if (user.role === 'Pegawai' && user.jabatan) {
+      // Jika rolenya 'pegawai' dan punya jabatan, tampilkan jabatannya
+      displayTitle = user.jabatan;
+    } else {
+      // Jika tidak, tampilkan nama rolenya
+      displayTitle = user.role_name || user.role;
+    }
+  }
+
+  // Buat URL avatar yang lengkap
+  const avatarUrl = user?.avatar
+    ? `${backendUrl}/${user.avatar}`
     : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=880&q=80";
 
   return (
@@ -61,7 +64,6 @@ export default function SidebarWaliKamar({ setSidebarOpen, user }) {
       <div className="p-4 shadow-sm">
         <Menu as="div" className="relative">
           <Menu.Button className="w-full flex items-center gap-3 text-left p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            {/* REVISI: Gunakan avatarUrl dinamis */}
             <img
               src={avatarUrl}
               alt="User avatar"
@@ -72,7 +74,7 @@ export default function SidebarWaliKamar({ setSidebarOpen, user }) {
                 {user ? user.nama : 'Memuat...'}
               </p>
               <p className="text-xs text-gray-500">
-                {user ? user.role : '...'}
+                {displayTitle}
               </p>
             </div>
           </Menu.Button>
@@ -89,11 +91,11 @@ export default function SidebarWaliKamar({ setSidebarOpen, user }) {
               <div className="py-1">
                 <Menu.Item>
                   {({ active }) => (
-                    <button 
-                      onClick={logout} 
+                    <button
+                      onClick={logout}
                       className={clsx(
-                        'w-full text-left flex items-center gap-3 px-4 py-2 text-sm', 
-                        active ? 'bg-red-100 text-red-700' : 'text-red-600' 
+                        'w-full text-left flex items-center gap-3 px-4 py-2 text-sm',
+                        active ? 'bg-red-100 text-red-700' : 'text-red-600'
                       )}
                     >
                       <FiLogOut /> Logout
@@ -120,17 +122,15 @@ export default function SidebarWaliKamar({ setSidebarOpen, user }) {
                     href={item.href}
                     onClick={handleLinkClick}
                     className={clsx(
-                      "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
+                      "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors text-sm",
                       {
-                        "bg-indigo-100 text-indigo-700 font-semibold":
-                          pathname === item.href,
-                        "text-gray-600 hover:bg-gray-100 hover:text-gray-900":
-                          pathname !== item.href,
+                        "bg-indigo-100 text-indigo-700 font-semibold": pathname === item.href,
+                        "text-gray-600 hover:bg-gray-100 hover:text-gray-900": pathname !== item.href,
                       }
                     )}
                   >
-                    <item.icon size={20} />
-                    <span className="font-medium">{item.name}</span>
+                    <item.icon size={20} className="flex-shrink-0" />
+                    <span>{item.name}</span>
                   </Link>
                 </li>
               ))}

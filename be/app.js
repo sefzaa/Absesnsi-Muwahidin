@@ -34,11 +34,15 @@ app.get('/', (req, res) => {
 app.use('/api/jadwal-rutin', allRoutes.jadwalRutin);
 app.use('/api/kegiatan-tambahan', allRoutes.kegiatanTambahan);
 app.use('/api/santri', allRoutes.santri);
-app.use('/api/absensi', allRoutes.absensi); // <-- TAMBAHKAN BARIS INI
+app.use('/api/absensi', allRoutes.absensiSantri); // <-- TAMBAHKAN BARIS INI
 app.use('/api/auth', allRoutes.auth); // <-- TAMBAHKAN BARIS INI
-app.use('/api/rekap-wk', allRoutes.rekapWaliKamar);
+app.use('/api/rekap', allRoutes.rekapSantri);
 app.use('/api', allRoutes.pegawai); // <-- TAMBAHKAN BARIS INI
 app.use('/api', allRoutes.musyrif); // <-- TAMBAHKAN BARIS INI
+app.use('/api/kehadiran-santri', allRoutes.kehadiranSantri); // <-- TAMBAHKAN BARIS INI
+app.use('/api/absen-pegawai', allRoutes.absenPegawai); // <-- TAMBAHKAN BARIS INI
+app.use('/api/jam-pelajaran', allRoutes.jamPelajaran); // <-- TAMBAHKAN BARIS INI
+app.use('/api/kelas-sekolah', allRoutes.kelasSekolah); // <-- TAMBAHKAN BARIS INI
 
 
 

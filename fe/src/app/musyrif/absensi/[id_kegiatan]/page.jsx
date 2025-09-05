@@ -12,7 +12,6 @@ import { useAuth } from '../../../AuthContext';
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 const statusOptions = ['Hadir', 'Alpa', 'Izin', 'Sakit'];
 
-// Helper function untuk styling status
 const getStatusClasses = (status) => {
     switch (status.toLowerCase()) {
         case 'hadir': return 'bg-green-100 text-green-700';
@@ -28,7 +27,6 @@ export default function AbsensiDetailPage() {
     const router = useRouter();
     const { id_kegiatan: id_kegiatan_unik } = params;
 
-    // State untuk data utama (dikelompokkan)
     const [groupedStudents, setGroupedStudents] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -36,11 +34,8 @@ export default function AbsensiDetailPage() {
     const [currentDate, setCurrentDate] = useState('');
     const { token } = useAuth();
     
-    // State untuk notifikasi modal sementara
     const [showNotif, setShowNotif] = useState(false);
     const [notifContent, setNotifContent] = useState({ message: '', type: 'success' });
-
-    // State baru untuk melacak tab kamar yang aktif
     const [selectedTab, setSelectedTab] = useState(0);
 
     useEffect(() => {
@@ -49,7 +44,7 @@ export default function AbsensiDetailPage() {
             return;
         }
 
-        const nameFromId = id_kegiatan_unik.split('-').slice(2).join(' ').replace(/_/g, ' ');
+        const nameFromId = id_kegiatan_unik.split('-').slice(3).join(' ').replace(/_/g, ' ');
         setKegiatanName(nameFromId.replace(/(^\w{1})|(\s+\w{1})/g, letter => letter.toUpperCase()));
         setCurrentDate(moment().tz('Asia/Jakarta').locale('id').format('dddd, DD MMMM YYYY'));
 
@@ -110,7 +105,7 @@ export default function AbsensiDetailPage() {
             setShowNotif(true);
 
             setTimeout(() => {
-                router.push('/wali-kamar/absensi');
+                router.push('/musyrif/absensi');
             }, 2000);
 
         } catch (error) {
@@ -124,23 +119,10 @@ export default function AbsensiDetailPage() {
     };
 
     const TemporaryNotification = () => (
-        <Transition
-            show={showNotif}
-            as={Fragment}
-            enter="transition-opacity duration-300"
-            enterFrom="opacity-0"
-            enterTo="opacity-100"
-            leave="transition-opacity duration-300"
-            leaveFrom="opacity-100"
-            leaveTo="opacity-0"
-        >
+        <Transition show={showNotif} as={Fragment} enter="transition-opacity duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="transition-opacity duration-300" leaveFrom="opacity-100" leaveTo="opacity-0">
             <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
                 <div className="bg-white rounded-lg p-6 flex items-center gap-4 shadow-xl">
-                    {notifContent.type === 'success' ? (
-                        <FiCheckCircle className="h-8 w-8 text-green-500" />
-                    ) : (
-                        <FiXCircle className="h-8 w-8 text-red-500" />
-                    )}
+                    {notifContent.type === 'success' ? <FiCheckCircle className="h-8 w-8 text-green-500" /> : <FiXCircle className="h-8 w-8 text-red-500" />}
                     <span className="text-lg font-medium text-gray-800">{notifContent.message}</span>
                 </div>
             </div>
@@ -149,19 +131,43 @@ export default function AbsensiDetailPage() {
 
     const currentRoom = groupedStudents[selectedTab];
 
+    const StatusSelector = ({ student }) => (
+        <Listbox value={student.status} onChange={(newStatus) => handleStatusChange(selectedTab, student.id_santri, newStatus)}>
+            <div className="relative w-32">
+                <Listbox.Button className={`relative w-full cursor-default rounded-full py-1.5 pl-3 pr-10 text-left text-xs font-medium focus:outline-none ${getStatusClasses(student.status)}`}>
+                    <span className="block truncate">{student.status}</span>
+                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2"><FiChevronDown className="h-4 w-4" aria-hidden="true" /></span>
+                </Listbox.Button>
+                <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
+                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm z-10">
+                        {statusOptions.map((status, statusIdx) => (
+                            <Listbox.Option key={statusIdx} className={({ active }) => `relative cursor-default select-none py-2 pl-10 pr-4 ${ active ? 'bg-indigo-100 text-indigo-900' : 'text-gray-900' }`} value={status}>
+                                {({ selected }) => (
+                                    <>
+                                        <span className={`block truncate ${ selected ? 'font-medium' : 'font-normal' }`}>{status}</span>
+                                        {selected ? (<span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600"><FiCheck className="h-5 w-5" aria-hidden="true" /></span>) : null}
+                                    </>
+                                )}
+                            </Listbox.Option>
+                        ))}
+                    </Listbox.Options>
+                </Transition>
+            </div>
+        </Listbox>
+    );
+
     return (
         <div className="space-y-6">
             <TemporaryNotification />
 
-            <div className="flex justify-between items-center">
-                 <h2 className="text-lg font-semibold text-gray-700">
-                    Kegiatan - <span className="text-gray-900 font-bold">{currentDate}</span> &gt; <span className="text-gray-900 font-bold">{kegiatanName}</span>
+            {/* --- 1. HEADER RESPONSIVE --- */}
+            <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
+                 <h2 className="text-lg font-semibold text-gray-700 leading-tight">
+                    Kegiatan - <span className="text-gray-900 font-bold">{currentDate}</span>
+                    <br className="sm:hidden" />
+                    <span className="text-base sm:text-lg"> &gt; <span className="font-bold">{kegiatanName}</span></span>
                 </h2>
-                <button 
-                    onClick={handleSave} 
-                    disabled={isSaving || isLoading}
-                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
+                <button onClick={handleSave} disabled={isSaving || isLoading} className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
                     {isSaving ? <FiLoader className="animate-spin" /> : <FiSave size={18} />}
                     <span>{isSaving ? 'Menyimpan...' : 'Simpan'}</span>
                 </button>
@@ -171,38 +177,32 @@ export default function AbsensiDetailPage() {
                 <div className="text-center py-10"><FiLoader className="animate-spin inline-block mr-2" /> Memuat data...</div>
             ) : groupedStudents.length > 0 ? (
                 <div className="bg-white rounded-lg shadow-sm border">
-                    {/* --- KONTENER TAB BARU --- */}
+                    {/* --- 2. NAVIGASI TAB RESPONSIVE --- */}
                     <div className="border-b border-gray-200">
-                        <nav className="-mb-px flex space-x-6 px-6" aria-label="Tabs">
-                            {groupedStudents.map((room, index) => (
-                                <button
-                                    key={room.id_kamar}
-                                    onClick={() => setSelectedTab(index)}
-                                    className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${
-                                        selectedTab === index
-                                        ? 'border-blue-500 text-blue-600'
-                                        : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                                    }`}
-                                >
-                                    {room.nomor_kamar}
-                                    <span className={`ml-2 text-xs font-semibold py-0.5 px-2 rounded-full ${
-                                        selectedTab === index
-                                        ? 'bg-blue-100 text-blue-600'
-                                        : 'bg-gray-100 text-gray-600'
-                                    }`}>
-                                        {room.santri.length}
-                                    </span>
-                                </button>
-                            ))}
-                        </nav>
+                        <div className="overflow-x-auto">
+                            <nav className="-mb-px flex space-x-6 px-4 sm:px-6 flex-nowrap min-w-full" aria-label="Tabs">
+                                {groupedStudents.map((kelas, index) => (
+                                    <button
+                                        key={kelas.id_kelas}
+                                        onClick={() => setSelectedTab(index)}
+                                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${ selectedTab === index ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }`}
+                                    >
+                                        {kelas.nama_kelas}
+                                        <span className={`ml-2 text-xs font-semibold py-0.5 px-2 rounded-full ${ selectedTab === index ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600' }`}>
+                                            {kelas.santri.length}
+                                        </span>
+                                    </button>
+                                ))}
+                            </nav>
+                        </div>
                     </div>
-                    {/* --- AKHIR KONTENER TAB --- */}
 
-                    {/* --- KONTEN TAB (TABEL) --- */}
-                    <div className="p-6">
+                    {/* --- 3. KONTEN TAB RESPONSIVE (TABEL & KARTU) --- */}
+                    <div className="p-4 sm:p-6">
                         {currentRoom && (
-                            <div className="overflow-x-auto">
-                                <table className="w-full text-sm text-left">
+                            <div>
+                                {/* TAMPILAN TABEL UNTUK DESKTOP (md ke atas) */}
+                                <table className="w-full text-sm text-left hidden md:table">
                                     <thead className="bg-gray-50/50 text-gray-500">
                                         <tr>
                                             <th className="p-4 font-medium w-16">NO</th>
@@ -216,35 +216,25 @@ export default function AbsensiDetailPage() {
                                                 <td className="p-4 text-gray-600">{studentIndex + 1}</td>
                                                 <td className="p-4 font-semibold text-gray-800">{student.nama}</td>
                                                 <td className="p-4">
-                                                    <Listbox value={student.status} onChange={(newStatus) => handleStatusChange(selectedTab, student.id_santri, newStatus)}>
-                                                        <div className="relative w-32">
-                                                            <Listbox.Button className={`relative w-full cursor-default rounded-full py-1.5 pl-3 pr-10 text-left text-xs font-medium focus:outline-none ${getStatusClasses(student.status)}`}>
-                                                                <span className="block truncate">{student.status}</span>
-                                                                <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2">
-                                                                    <FiChevronDown className="h-4 w-4" aria-hidden="true" />
-                                                                </span>
-                                                            </Listbox.Button>
-                                                            <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
-                                                                <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm z-10">
-                                                                    {statusOptions.map((status, statusIdx) => (
-                                                                        <Listbox.Option key={statusIdx} className={({ active }) => `relative cursor-default select-none py-2 pl-10 pr-4 ${ active ? 'bg-indigo-100 text-indigo-900' : 'text-gray-900' }`} value={status}>
-                                                                            {({ selected }) => (
-                                                                                <>
-                                                                                    <span className={`block truncate ${ selected ? 'font-medium' : 'font-normal' }`}>{status}</span>
-                                                                                    {selected ? (<span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600"><FiCheck className="h-5 w-5" aria-hidden="true" /></span>) : null}
-                                                                                </>
-                                                                            )}
-                                                                        </Listbox.Option>
-                                                                    ))}
-                                                                </Listbox.Options>
-                                                            </Transition>
-                                                        </div>
-                                                    </Listbox>
+                                                    <StatusSelector student={student} />
                                                 </td>
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
+
+                                {/* TAMPILAN KARTU UNTUK MOBILE (di bawah md) */}
+                                <div className="space-y-3 md:hidden">
+                                    {currentRoom.santri.map((student, studentIndex) => (
+                                        <div key={student.id_santri} className="bg-gray-50 rounded-lg p-4 flex justify-between items-center">
+                                            <div>
+                                                <p className="font-semibold text-gray-800">{student.nama}</p>
+                                                <p className="text-xs text-gray-500">No. {studentIndex + 1}</p>
+                                            </div>
+                                            <StatusSelector student={student} />
+                                        </div>
+                                    ))}
+                                </div>
                             </div>
                         )}
                     </div>

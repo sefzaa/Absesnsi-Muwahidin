@@ -4,7 +4,7 @@ import { useState, Fragment, useMemo } from 'react';
 import { usePathname } from 'next/navigation';
 import { Dialog, Transition } from '@headlessui/react';
 import { FiMenu, FiX, FiSearch, FiFilter } from 'react-icons/fi';
-import SidebarWaliKamar from '@/components/SidebarWaliKamar';
+import SidebarMusyrif from '@/components/SidebarMusyrif';
 import { useAuth } from '../AuthContext'; // REVISI: Impor useAuth
 
 export default function WaliKamarLayout({ children }) {
@@ -13,14 +13,23 @@ export default function WaliKamarLayout({ children }) {
   const { user } = useAuth(); // REVISI: Ambil data user dari context
 
   // Logika untuk membuat judul dinamis sesuai URL
-  const pageTitle = useMemo(() => {
-    if (pathname === '/wali-kamar') {
-      return 'Dashboard';
+const pageTitle = useMemo(() => {
+    const urlSegments = pathname.split('/');
+    const lastSegment = urlSegments.pop() || '';
+
+    // Logika spesifik untuk halaman absensi detail
+    if (urlSegments.includes('absensi') && lastSegment) {
+      const namePart = (lastSegment.split('-').pop() || '').replace(/_/g, ' ');
+      return namePart.replace(/\b\w/g, char => char.toUpperCase());
     }
-    const lastSegment = pathname.split('/').pop();
-    const title = lastSegment.replace(/-/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
-    return title;
-  }, [pathname]);
+
+    // Logika fallback untuk halaman lain (seperti Dashboard, Rekap, dll)
+    if (lastSegment) {
+        return lastSegment.replace(/-/g, ' ').replace(/\b\w/g, char => char.toUpperCase());
+    }
+    
+    return 'Dashboard'; // Default title
+  }, [pathname]);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -35,7 +44,7 @@ export default function WaliKamarLayout({ children }) {
                             <div className="absolute top-0 right-0 -mr-12 pt-2"><button type="button" className="ml-1 flex items-center justify-center h-10 w-10 rounded-full focus:outline-none focus:ring-2 focus:ring-inset focus:ring-white" onClick={() => setSidebarOpen(false)}><span className="sr-only">Close sidebar</span><FiX className="h-6 w-6 text-white" aria-hidden="true" /></button></div>
                         </Transition.Child>
                         {/* REVISI: Teruskan props 'user' dan 'setSidebarOpen' */}
-                        <SidebarWaliKamar setSidebarOpen={setSidebarOpen} user={user} />
+                        <SidebarMusyrif setSidebarOpen={setSidebarOpen} user={user} />
                     </Dialog.Panel>
                 </Transition.Child>
                 <div className="flex-shrink-0 w-14" aria-hidden="true"></div>
@@ -46,7 +55,7 @@ export default function WaliKamarLayout({ children }) {
       {/* Sidebar Desktop */}
       <div className="hidden lg:flex lg:w-64 lg:flex-col lg:fixed lg:inset-y-0 shadow-md">
         {/* REVISI: Teruskan props 'user' */}
-        <SidebarWaliKamar user={user} />
+        <SidebarMusyrif user={user} />
       </div>
 
       <div className="lg:pl-64 flex flex-col flex-1">

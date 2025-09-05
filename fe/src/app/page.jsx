@@ -37,17 +37,18 @@ export default function LoginPage() {
             
             login(data.accessToken, data);
 
-            // --- ▼▼▼ MODIFIKASI: Tambah redirect untuk Disgiat Asrama ▼▼▼ ---
-            if (data.slug === 'wali-kamar') {
-                router.push('/wali-kamar');
-            } else if (data.slug === 'admin-asrama') {
-                router.push('/adminAsrama'); 
-            } else if (data.slug === 'disgiat-asrama') { // <-- PENAMBAHAN
-                router.push('/disgiatAsrama');
-            } else {
-                router.push('/');
-            }
-            // --- ▲▲▲ Akhir Modifikasi ---
+            // --- ▼▼▼ MODIFIKASI: Arahkan berdasarkan role dan jabatan baru ▼▼▼ ---
+            if (data.slug === 'pegawai' && data.jabatan === 'musyrif') {
+                router.push('/musyrif');
+            } else if (data.slug === 'pegawai' && data.jabatan === 'tu') {
+                router.push('/tu'); // <-- Arahkan ke dasbor TU
+            } else if (data.slug === 'admin-asrama') {
+                router.push('/adminAsrama');
+            } else {
+                // Redirect default jika ada role lain yang tidak dikenal
+                router.push('/');
+            }
+            // --- ▲▲▲ Akhir Modifikasi ---
 
         } catch (err) {
             setError(err.message);
