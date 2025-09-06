@@ -48,7 +48,13 @@ export default function LoginPage() {
             }
             else if (data.slug === 'admin-asrama') {
                 router.push('/adminAsrama');
-            } else {
+            } 
+                        // --- ▼▼▼ TAMBAHAN: Redirect untuk Orang Tua ▼▼▼ ---
+            else if (data.slug === 'orang-tua') {
+                router.push('/ortu'); 
+            }
+            // --- ▲▲▲ Akhir Tambahan ---
+            else {
                 // Redirect default jika ada role lain yang tidak dikenal
                 router.push('/');
             }

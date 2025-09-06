@@ -47,6 +47,8 @@ app.use('/api/absen-sekolah', allRoutes.absenSekolah); // <-- TAMBAHKAN BARIS IN
 app.use('/api/riwayat-absen', allRoutes.riwayatAbsenSekolah); // <-- TAMBAHKAN BARIS INI
 app.use('/api/rekap-absen-sekolah', allRoutes.rekapAbsenSekolah); // <-- TAMBAHKAN BARIS INI
 app.use('/api/rekap-absen-pegawai', allRoutes.rekapAbsenPegawai); // <-- TAMBAHKAN BARIS INI
+app.use('/api/ortu', allRoutes.ortu); // <-- TAMBAHKAN BARIS INI
+app.use('/api/user', allRoutes.user); // <-- TAMBAHKAN BARIS INI
 
 
 // --- SINKRONISASI DATABASE DAN JALANKAN SERVER ---

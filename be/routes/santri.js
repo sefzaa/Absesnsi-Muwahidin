@@ -7,7 +7,7 @@ const { verifyToken } = require('../middleware/auth.middleware');
 router.use(verifyToken);
 
 // ====================================================================
-// ===            PENTING: URUTAN RUTE TELAH DIPERBAIKI             ===
+// ===                PENTING: URUTAN RUTE BENAR                  ===
 // ====================================================================
 // Rute yang spesifik seperti '/kelas' dan '/promote' harus diletakkan
 // SEBELUM rute dinamis seperti '/:id' agar tidak salah ditangkap.

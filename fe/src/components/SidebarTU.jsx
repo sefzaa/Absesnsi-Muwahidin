@@ -12,10 +12,10 @@ import {
   FiBook,
   FiFileText,
   FiLogOut,
+  FiSettings, // <-- 1. IMPORT IKON BARU
 } from "react-icons/fi";
 import { useAuth } from "@/app/AuthContext";
 
-// Definisikan URL backend untuk gambar
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
 const menuItems = [
@@ -44,23 +44,15 @@ export default function SidebarTU({ setSidebarOpen }) {
 
   let displayTitle = '...';
   if (user) {
-    if (user.role === 'Pegawai' && user.jabatan) {
-      // Jika rolenya 'pegawai' dan punya jabatan, tampilkan jabatannya
-      displayTitle = user.jabatan;
-    } else {
-      // Jika tidak, tampilkan nama rolenya
-      displayTitle = user.role_name || user.role;
-    }
+      displayTitle = user.jabatan || user.role_name || user.role;
   }
 
-  // Buat URL avatar yang lengkap
   const avatarUrl = user?.avatar
     ? `${backendUrl}/${user.avatar}`
     : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=880&q=80";
 
   return (
     <aside className="bg-white w-full h-full flex flex-col">
-      {/* Header Sidebar dengan Profil Pengguna */}
       <div className="p-4 shadow-sm">
         <Menu as="div" className="relative">
           <Menu.Button className="w-full flex items-center gap-3 text-left p-2 rounded-lg hover:bg-gray-100 transition-colors">
@@ -89,6 +81,21 @@ export default function SidebarTU({ setSidebarOpen }) {
           >
             <Menu.Items className="absolute z-10 mt-2 w-full origin-top-right rounded-md bg-white shadow-lg focus:outline-none">
               <div className="py-1">
+                {/* --- ▼▼▼ 2. TAMBAHKAN MENU ITEM PENGATURAN ▼▼▼ --- */}
+                <Menu.Item>
+                  {({ active }) => (
+                    <Link
+                      href="/tu/pengaturan"
+                      className={clsx(
+                        'w-full text-left flex items-center gap-3 px-4 py-2 text-sm',
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      )}
+                    >
+                      <FiSettings /> Pengaturan Akun
+                    </Link>
+                  )}
+                </Menu.Item>
+                {/* --- ▲▲▲ AKHIR TAMBAHAN --- */}
                 <Menu.Item>
                   {({ active }) => (
                     <button
@@ -107,8 +114,6 @@ export default function SidebarTU({ setSidebarOpen }) {
           </Transition>
         </Menu>
       </div>
-
-      {/* Navigasi Menu */}
       <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
         {menuItems.map((menuGroup) => (
           <div key={menuGroup.group}>

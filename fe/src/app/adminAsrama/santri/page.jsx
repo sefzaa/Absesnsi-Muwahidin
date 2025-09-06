@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo, Fragment } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { FiEdit3, FiX, FiSearch, FiLoader, FiPlus, FiEye, FiTrendingUp, FiAlertCircle, FiCheckCircle } from 'react-icons/fi';
+import { FiEdit3, FiX, FiSearch, FiLoader, FiPlus, FiEye, FiTrendingUp, FiAlertCircle, FiCheckCircle, FiUserPlus, FiKey } from 'react-icons/fi';
 import { useAuth } from '../../AuthContext';
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -21,12 +21,11 @@ const Modal = ({ isOpen, onClose, title, children }) => {
         <Transition appear show={isOpen} as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={onClose}>
                 <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-<div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+<div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
                 </Transition.Child>
                 <div className="fixed inset-0 overflow-y-auto">
                     <div className="flex min-h-full items-center justify-center p-4 text-center">
                         <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
-                            {/* --- PERUBAHAN DI SINI --- */}
                             <Dialog.Panel className="w-full max-w-4xl transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
                                 <div className="flex justify-between items-center mb-4">
                                     <Dialog.Title as="h3" className="text-xl font-bold text-gray-800">{title}</Dialog.Title>
@@ -47,7 +46,6 @@ const filterButtons = [
     { id: 'all', label: 'Semua' }, { id: 1, label: '1' }, { id: 2, label: '2' }, { id: 3, label: '3' }, { id: 4, label: '4' }, { id: 5, label: '5' }, { id: 6, label: '6' },
 ];
 
-// Template data santri baru
 const initialSantriState = {
     nama: '',
     tempat_lahir: '',
@@ -63,7 +61,9 @@ const initialSantriState = {
         pekerjaan_lk: '',
         pekerjaan_pr: '',
         no_telp: '',
-        alamat: ''
+        alamat: '',
+        username: '',
+        password: ''
     }
 };
 
@@ -89,17 +89,18 @@ export default function SantriPage() {
     const [isViewModalOpen, setIsViewModalOpen] = useState(false);
     const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
 
-    // --- PERUBAHAN: State untuk modal konfirmasi dan notifikasi ---
     const [isConfirmPromoteModalOpen, setIsConfirmPromoteModalOpen] = useState(false);
     const [notification, setNotification] = useState({ isOpen: false, message: '', isError: false });
 
     const [editingSantri, setEditingSantri] = useState(null);
     const [viewingSantri, setViewingSantri] = useState(null);
     const [newSantriData, setNewSantriData] = useState(initialSantriState);
+    
+    const [newPassword, setNewPassword] = useState('');
+    const [newUsernameForEdit, setNewUsernameForEdit] = useState('');
 
     const [kelasOptions, setKelasOptions] = useState([]);
 
-    // Fetch data santri dari backend
     const fetchSantri = async () => {
         if (!token) return;
         setIsLoading(true);
@@ -117,7 +118,6 @@ export default function SantriPage() {
         }
     };
 
-    // Fetch data kelas untuk dropdown
     const fetchKelasOptions = async () => {
         if (!token) return;
         try {
@@ -139,7 +139,6 @@ export default function SantriPage() {
         }
     }, [token, user]);
 
-    // Memoized filtered santri
     const filteredSantri = useMemo(() => {
         return allSantri.filter(santri => {
             const matchesFilter = activeFilter === 'all' 
@@ -152,7 +151,6 @@ export default function SantriPage() {
         });
     }, [allSantri, searchTerm, activeFilter]);
 
-    // --- Handlers untuk Modal ---
     const openEditModal = (santri) => {
         setEditingSantri({
             ...santri,
@@ -160,6 +158,8 @@ export default function SantriPage() {
             status_aktif: santri.status_aktif ? 'Aktif' : 'Tidak Aktif',
             Ortu: santri.Ortu || initialSantriState.Ortu
         });
+        setNewPassword(''); 
+        setNewUsernameForEdit('');
         setIsEditModalOpen(true);
     };
     const closeEditModal = () => setIsEditModalOpen(false);
@@ -176,10 +176,9 @@ export default function SantriPage() {
     };
     const closeCreateModal = () => setIsCreateModalOpen(false);
 
-    // --- PERUBAHAN: Handler untuk menutup modal notifikasi ---
     const closeNotificationModal = () => setNotification({ isOpen: false, message: '', isError: false });
 
-    // --- Handlers untuk Aksi CRUD ---
+    // --- PERUBAHAN: Menambahkan notifikasi ---
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
@@ -192,23 +191,30 @@ export default function SantriPage() {
                 headers: { 'Content-Type': 'application/json', 'x-access-token': token },
                 body: JSON.stringify(payload)
             });
+            
+            const result = await response.json();
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.message || 'Gagal membuat data santri');
+                throw new Error(result.message || 'Gagal membuat data santri');
             }
+
             await fetchSantri();
             closeCreateModal();
+            setNotification({ isOpen: true, message: result.message, isError: false });
         } catch (error) {
             console.error("Error creating santri:", error);
+            setNotification({ isOpen: true, message: `Error: ${error.message}`, isError: true });
         }
     };
     
+    // --- PERUBAHAN: Menambahkan notifikasi ---
     const handleUpdate = async (e) => {
         e.preventDefault();
         try {
             const payload = {
                 ...editingSantri,
-                status_aktif: editingSantri.status_aktif === 'Aktif'
+                status_aktif: editingSantri.status_aktif === 'Aktif',
+                newPassword: newPassword,
+                newUsername: newUsernameForEdit,
             };
 
             const response = await fetch(`${backendUrl}/api/santri/${editingSantri.id_santri}`, {
@@ -216,20 +222,23 @@ export default function SantriPage() {
                 headers: { 'Content-Type': 'application/json', 'x-access-token': token },
                 body: JSON.stringify(payload)
             });
+            
+            const result = await response.json();
             if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.message || 'Gagal memperbarui data');
+                throw new Error(result.message || 'Gagal memperbarui data');
             }
+
             await fetchSantri();
             closeEditModal();
+            setNotification({ isOpen: true, message: result.message, isError: false });
         } catch (error) {
             console.error("Error updating santri:", error);
+            setNotification({ isOpen: true, message: `Error: ${error.message}`, isError: true });
         }
     };
 
-    // --- PERUBAHAN: Fungsi untuk mengeksekusi kenaikan kelas setelah konfirmasi ---
     const executePromoteClasses = async () => {
-        setIsConfirmPromoteModalOpen(false); // Tutup modal konfirmasi
+        setIsConfirmPromoteModalOpen(false);
         try {
             const response = await fetch(`${backendUrl}/api/santri/promote`, {
                 method: 'POST',
@@ -240,11 +249,9 @@ export default function SantriPage() {
                 throw new Error(result.message || 'Gagal memproses kenaikan kelas');
             }
             await fetchSantri();
-            // Tampilkan notifikasi sukses
             setNotification({ isOpen: true, message: result.message, isError: false });
         } catch (error) {
             console.error("Error promoting classes:", error);
-            // Tampilkan notifikasi error
             setNotification({ isOpen: true, message: `Error: ${error.message}`, isError: true });
         }
     };
@@ -256,7 +263,6 @@ export default function SantriPage() {
                     <button onClick={openCreateModal} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors">
                         <FiPlus size={16} /><span>Input Santri</span>
                     </button>
-                    {/* --- PERUBAHAN: onClick membuka modal konfirmasi --- */}
                     <button onClick={() => setIsConfirmPromoteModalOpen(true)} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium rounded-lg bg-green-600 text-white hover:bg-green-700 transition-colors">
                         <FiTrendingUp size={16} /><span>Update Tahun Pelajaran</span>
                     </button>
@@ -275,7 +281,6 @@ export default function SantriPage() {
                 ))}
             </div>
 
-            {/* --- PERUBAHAN: Wrapper div untuk membuat tabel bisa di-scroll secara horizontal --- */}
             <div className="overflow-x-auto border border-gray-200 rounded-lg">
                 <table className="w-full min-w-[800px] text-sm text-left">
                     <thead className="bg-gray-50 text-gray-500 uppercase">
@@ -316,11 +321,11 @@ export default function SantriPage() {
                 </table>
             </div>
 
+
             {/* --- MODAL CREATE --- */}
             {isCreateModalOpen && (
                 <Modal isOpen={isCreateModalOpen} onClose={closeCreateModal} title="Input Data Santri Baru">
                     <form onSubmit={handleCreate} className="space-y-6">
-                        {/* Data Diri Santri */}
                         <div className="p-4 border rounded-lg">
                             <h4 className="text-lg font-semibold mb-3 text-gray-700">Data Diri Santri</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -338,23 +343,23 @@ export default function SantriPage() {
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Tempat Lahir</label>
-                                    <input type="text" value={newSantriData.tempat_lahir} onChange={(e) => setNewSantriData({...newSantriData, tempat_lahir: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input type="text" required value={newSantriData.tempat_lahir} onChange={(e) => setNewSantriData({...newSantriData, tempat_lahir: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Tanggal Lahir</label>
-                                    <input type="date" value={newSantriData.tanggal_lahir} onChange={(e) => setNewSantriData({...newSantriData, tanggal_lahir: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input type="date" required value={newSantriData.tanggal_lahir} onChange={(e) => setNewSantriData({...newSantriData, tanggal_lahir: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">Alamat Santri</label>
-                                    <textarea value={newSantriData.alamat} onChange={(e) => setNewSantriData({...newSantriData, alamat: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
+                                    <textarea required value={newSantriData.alamat} onChange={(e) => setNewSantriData({...newSantriData, alamat: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Tahun Masuk</label>
-                                    <input type="text" value={newSantriData.tahun_masuk} onChange={(e) => setNewSantriData({...newSantriData, tahun_masuk: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input type="text" required value={newSantriData.tahun_masuk} onChange={(e) => setNewSantriData({...newSantriData, tahun_masuk: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Kelas</label>
-                                    <select value={newSantriData.id_kelas} onChange={(e) => setNewSantriData({...newSantriData, id_kelas: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                                    <select required value={newSantriData.id_kelas} onChange={(e) => setNewSantriData({...newSantriData, id_kelas: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
                                         <option value="">-- Pilih Kelas --</option>
                                         {kelasOptions.map(k => <option key={k.id_kelas} value={k.id_kelas}>{k.nama_kelas}</option>)}
                                     </select>
@@ -362,33 +367,61 @@ export default function SantriPage() {
                             </div>
                         </div>
 
-                        {/* Data Orang Tua */}
                         <div className="p-4 border rounded-lg">
                             <h4 className="text-lg font-semibold mb-3 text-gray-700">Data Orang Tua / Wali</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Nama Ayah</label>
-                                    <input type="text" value={newSantriData.Ortu.nama_ortu_lk} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, nama_ortu_lk: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input type="text" required value={newSantriData.Ortu.nama_ortu_lk} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, nama_ortu_lk: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Pekerjaan Ayah</label>
-                                    <input type="text" value={newSantriData.Ortu.pekerjaan_lk} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, pekerjaan_lk: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input type="text" required value={newSantriData.Ortu.pekerjaan_lk} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, pekerjaan_lk: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Nama Ibu</label>
-                                    <input type="text" value={newSantriData.Ortu.nama_ortu_pr} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, nama_ortu_pr: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input type="text" required value={newSantriData.Ortu.nama_ortu_pr} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, nama_ortu_pr: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Pekerjaan Ibu</label>
-                                    <input type="text" value={newSantriData.Ortu.pekerjaan_pr} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, pekerjaan_pr: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input type="text" required value={newSantriData.Ortu.pekerjaan_pr} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, pekerjaan_pr: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">No. Telepon</label>
-                                    <input type="tel" value={newSantriData.Ortu.no_telp} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, no_telp: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input type="tel" required value={newSantriData.Ortu.no_telp} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, no_telp: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
                                 </div>
                                 <div className="md:col-span-2">
                                     <label className="block text-sm font-medium text-gray-700">Alamat Orang Tua</label>
-                                    <textarea value={newSantriData.Ortu.alamat} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, alamat: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
+                                    <textarea required value={newSantriData.Ortu.alamat} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, alamat: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
+                                </div>
+                                
+                                {/* --- PERUBAHAN: Validasi Wajib Isi Akun Wali --- */}
+                                <div className="md:col-span-2 border-t pt-4 mt-2">
+                                    <div className="flex items-center gap-2 mb-2">
+                                       <FiUserPlus className="text-gray-600" />
+                                       <h5 className="text-md font-semibold text-gray-700">Buat Akun Wali Santri</h5>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mb-3">Jika diisi, username dan password akan digunakan untuk membuat akun baru. Keduanya wajib diisi bersamaan.</p>
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Username</label>
+                                    <input 
+                                        type="text" 
+                                        value={newSantriData.Ortu.username} 
+                                        onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, username: e.target.value}})} 
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                        required={!!newSantriData.Ortu.password}
+                                    />
+                                </div>
+                                <div>
+                                    <label className="block text-sm font-medium text-gray-700">Password</label>
+                                    <input 
+                                        type="password" 
+                                        value={newSantriData.Ortu.password} 
+                                        onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, password: e.target.value}})} 
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                        required={!!newSantriData.Ortu.username}
+                                    />
                                 </div>
                             </div>
                         </div>
@@ -405,7 +438,6 @@ export default function SantriPage() {
             {editingSantri && (
                 <Modal isOpen={isEditModalOpen} onClose={closeEditModal} title={`Edit Data: ${editingSantri.nama}`}>
                     <form onSubmit={handleUpdate} className="space-y-6">
-                        {/* Data Diri Santri */}
                         <div className="p-4 border rounded-lg">
                             <h4 className="text-lg font-semibold mb-3 text-gray-700">Data Diri Santri</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -446,7 +478,6 @@ export default function SantriPage() {
                             </div>
                         </div>
 
-                        {/* Data Orang Tua */}
                         <div className="p-4 border rounded-lg">
                             <h4 className="text-lg font-semibold mb-3 text-gray-700">Data Orang Tua / Wali</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -474,6 +505,64 @@ export default function SantriPage() {
                                     <label className="block text-sm font-medium text-gray-700">Alamat Orang Tua</label>
                                     <textarea value={editingSantri.Ortu?.alamat || ''} onChange={(e) => setEditingSantri({...editingSantri, Ortu: {...editingSantri.Ortu, alamat: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
                                 </div>
+
+                                {editingSantri.Ortu && (
+                                    <>
+                                        <div className="md:col-span-2 border-t pt-4 mt-2">
+                                            <div className="flex items-center gap-2 mb-2">
+                                               <FiKey className="text-gray-600" />
+                                               <h5 className="text-md font-semibold text-gray-700">
+                                                   {editingSantri.Ortu.User ? 'Ubah Akun Wali Santri' : 'Buat Akun Wali Santri'}
+                                               </h5>
+                                            </div>
+                                            { !editingSantri.Ortu.User && <p className="text-xs text-gray-500 mb-3">Wali santri ini belum memiliki akun. Isi form di bawah untuk membuat akun baru.</p> }
+                                        </div>
+
+                                        {editingSantri.Ortu.User ? (
+                                            <>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Username</label>
+                                                    <input type="text" value={editingSantri.Ortu.User.username} readOnly className="mt-1 block w-full px-3 py-2 border-gray-200 rounded-lg text-gray-700 bg-gray-100 focus:outline-none" />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Reset Password</label>
+                                                    <input 
+                                                        type="password"
+                                                        placeholder="Isi jika ingin mengubah" 
+                                                        value={newPassword}
+                                                        onChange={(e) => setNewPassword(e.target.value)}
+                                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                    />
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Username Baru</label>
+                                                    <input 
+                                                        type="text"
+                                                        placeholder="Buat username untuk wali"
+                                                        value={newUsernameForEdit}
+                                                        onChange={(e) => setNewUsernameForEdit(e.target.value)}
+                                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                                        required={!!newPassword}
+                                                    />
+                                                </div>
+                                                <div>
+                                                    <label className="block text-sm font-medium text-gray-700">Password Baru</label>
+                                                    <input 
+                                                        type="password"
+                                                        placeholder="Buat password untuk wali" 
+                                                        value={newPassword}
+                                                        onChange={(e) => setNewPassword(e.target.value)}
+                                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                                        required={!!newUsernameForEdit}
+                                                    />
+                                                </div>
+                                            </>
+                                        )}
+                                    </>
+                                )}
                             </div>
                         </div>
 
@@ -488,38 +577,38 @@ export default function SantriPage() {
             {/* --- MODAL VIEW --- */}
             {viewingSantri && (
                 <Modal isOpen={isViewModalOpen} onClose={closeViewModal} title={`Detail Data: ${viewingSantri.nama}`}>
-                    <div className="space-y-6">
-                        <div className="p-4 border rounded-lg">
-                            <h4 className="text-lg font-semibold mb-3 text-gray-700">Data Diri Santri</h4>
-                            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                                <div className="flex flex-col"><dt className="text-gray-500">Nama:</dt><dd className="text-gray-800 font-medium">{viewingSantri.nama}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">Jenis Kelamin:</dt><dd className="text-gray-800 font-medium">{viewingSantri.jenis_kelamin}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">Kelahiran:</dt><dd className="text-gray-800 font-medium">{viewingSantri.tempat_lahir}, {new Date(viewingSantri.tanggal_lahir).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">Tahun Masuk:</dt><dd className="text-gray-800 font-medium">{viewingSantri.tahun_masuk}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">Kelas:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Kela?.nama_kelas || '-'}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">Status:</dt><dd><StatusBadge status={viewingSantri.status_aktif} /></dd></div>
-                                <div className="flex flex-col md:col-span-2"><dt className="text-gray-500">Alamat:</dt><dd className="text-gray-800 font-medium">{viewingSantri.alamat}</dd></div>
-                            </dl>
-                        </div>
-                        <div className="p-4 border rounded-lg">
-                            <h4 className="text-lg font-semibold mb-3 text-gray-700">Data Orang Tua / Wali</h4>
-                            <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
-                                <div className="flex flex-col"><dt className="text-gray-500">Nama Ayah:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.nama_ortu_lk || '-'}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">Pekerjaan Ayah:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.pekerjaan_lk || '-'}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">Nama Ibu:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.nama_ortu_pr || '-'}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">Pekerjaan Ibu:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.pekerjaan_pr || '-'}</dd></div>
-                                <div className="flex flex-col"><dt className="text-gray-500">No. Telepon:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.no_telp || '-'}</dd></div>
-                                <div className="flex flex-col md:col-span-2"><dt className="text-gray-500">Alamat Ortu:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.alamat || '-'}</dd></div>
-                            </dl>
-                        </div>
-                        <div className="flex justify-end pt-4 border-t mt-6">
-                            <button type="button" onClick={closeViewModal} className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200">Tutup</button>
-                        </div>
-                    </div>
+                     <div className="space-y-6">
+                         <div className="p-4 border rounded-lg">
+                             <h4 className="text-lg font-semibold mb-3 text-gray-700">Data Diri Santri</h4>
+                             <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                 <div className="flex flex-col"><dt className="text-gray-500">Nama:</dt><dd className="text-gray-800 font-medium">{viewingSantri.nama}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Jenis Kelamin:</dt><dd className="text-gray-800 font-medium">{viewingSantri.jenis_kelamin}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Kelahiran:</dt><dd className="text-gray-800 font-medium">{viewingSantri.tempat_lahir}, {new Date(viewingSantri.tanggal_lahir).toLocaleDateString('id-ID', { year: 'numeric', month: 'long', day: 'numeric' })}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Tahun Masuk:</dt><dd className="text-gray-800 font-medium">{viewingSantri.tahun_masuk}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Kelas:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Kela?.nama_kelas || '-'}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Status:</dt><dd><StatusBadge status={viewingSantri.status_aktif} /></dd></div>
+                                 <div className="flex flex-col md:col-span-2"><dt className="text-gray-500">Alamat:</dt><dd className="text-gray-800 font-medium">{viewingSantri.alamat}</dd></div>
+                             </dl>
+                         </div>
+                         <div className="p-4 border rounded-lg">
+                             <h4 className="text-lg font-semibold mb-3 text-gray-700">Data Orang Tua / Wali</h4>
+                             <dl className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-3 text-sm">
+                                 <div className="flex flex-col"><dt className="text-gray-500">Nama Ayah:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.nama_ortu_lk || '-'}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Pekerjaan Ayah:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.pekerjaan_lk || '-'}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Nama Ibu:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.nama_ortu_pr || '-'}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Pekerjaan Ibu:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.pekerjaan_pr || '-'}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">No. Telepon:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.no_telp || '-'}</dd></div>
+                                 <div className="flex flex-col"><dt className="text-gray-500">Username Wali:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.User?.username || '-'}</dd></div>
+                                 <div className="flex flex-col md:col-span-2"><dt className="text-gray-500">Alamat Ortu:</dt><dd className="text-gray-800 font-medium">{viewingSantri.Ortu?.alamat || '-'}</dd></div>
+                             </dl>
+                         </div>
+                         <div className="flex justify-end pt-4 border-t mt-6">
+                             <button type="button" onClick={closeViewModal} className="px-4 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200">Tutup</button>
+                         </div>
+                     </div>
                 </Modal>
             )}
 
-            {/* --- BARU: Modal untuk Konfirmasi Kenaikan Kelas --- */}
             <Modal isOpen={isConfirmPromoteModalOpen} onClose={() => setIsConfirmPromoteModalOpen(false)} title="Konfirmasi Kenaikan Kelas">
                 <div className="text-center">
                     <FiAlertCircle className="mx-auto mb-4 h-12 w-12 text-yellow-500" />
@@ -538,9 +627,8 @@ export default function SantriPage() {
                 </div>
             </Modal>
 
-            {/* --- BARU: Modal untuk Notifikasi Hasil Aksi --- */}
             <Modal isOpen={notification.isOpen} onClose={closeNotificationModal} title={notification.isError ? "Terjadi Kesalahan" : "Sukses"}>
-                 <div className="text-center">
+                <div className="text-center">
                     {notification.isError ? (
                         <FiAlertCircle className="mx-auto mb-4 h-12 w-12 text-red-500" />
                     ) : (
@@ -555,3 +643,4 @@ export default function SantriPage() {
         </div>
     );
 }
+

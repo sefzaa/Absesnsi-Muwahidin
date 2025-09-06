@@ -7,6 +7,7 @@ const Role = db.Role;
 const Pegawai = db.Pegawai;
 const Jabatan = db.Jabatan;
 // --- ▲▲▲ AKHIR PERUBAHAN ---
+const Ortu = db.Ortu; // <-- TAMBAHKAN BARIS INI
 const jwt = require('jsonwebtoken');
 const bcrypt = require('bcryptjs');
 
@@ -72,7 +73,18 @@ exports.login = async (req, res) => {
                 return res.status(404).send({ message: 'Data pegawai tidak ditemukan.' });
             }
         }
-        // --- ▲▲▲ AKHIR MODIFIKASI ---
+        else if (userRoleSlug === 'orang-tua') {
+            const ortu = await Ortu.findOne({
+                where: { id_user: user.id_user }
+            });
+
+            if (!ortu) {
+                return res.status(404).send({ message: 'Data orang tua tidak ditemukan terhubung dengan akun ini.' });
+            }
+            extraInfo = {
+                id_ortu: ortu.id_ortu // Kirim id_ortu untuk identifikasi
+            };
+        }
 
         // Logika untuk role lain seperti admin-asrama bisa tetap di sini jika ada
         else if (userRoleSlug === 'admin-asrama') {

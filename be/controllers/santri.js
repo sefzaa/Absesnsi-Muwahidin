@@ -1,9 +1,9 @@
 // file: controllers/santri.js
 
-const { Santri, Kelas, Ortu, sequelize } = require('../models');
+const { Santri, Kelas, Ortu, User, Role, sequelize } = require('../models');
 const { Op } = require('sequelize');
+const bcrypt = require('bcrypt');
 
-// --- GET ALL SANTRI (dengan filter jenis kelamin dan include data ortu) ---
 const getAll = async (req, res) => {
   try {
     const adminJenisKelamin = req.user.jenis_kelamin;
@@ -21,8 +21,12 @@ const getAll = async (req, res) => {
           attributes: ['id_kelas', 'nama_kelas'] 
         },
         {
-          model: Ortu, // Selalu sertakan data orang tua
-          required: false // Gunakan LEFT JOIN
+          model: Ortu,
+          required: false,
+          include: [{
+            model: User,
+            attributes: ['username']
+          }]
         }
       ],
       order: [['nama', 'ASC']],
@@ -35,14 +39,20 @@ const getAll = async (req, res) => {
   }
 };
 
-// --- GET ONE SANTRI BY ID (untuk modal view/edit) ---
 const getById = async (req, res) => {
     const { id } = req.params;
     try {
         const santri = await Santri.findByPk(id, {
             include: [
                 { model: Kelas, attributes: ['id_kelas', 'nama_kelas'] },
-                { model: Ortu, required: false } // 'required: false' melakukan LEFT JOIN
+                { 
+                  model: Ortu, 
+                  required: false,
+                  include: [{
+                    model: User,
+                    attributes: ['username']
+                  }]
+                }
             ]
         });
 
@@ -56,16 +66,43 @@ const getById = async (req, res) => {
     }
 };
 
-// --- CREATE NEW SANTRI (dengan data ortu) ---
 const create = async (req, res) => {
     const { Ortu: ortuData, ...santriData } = req.body;
+    const { username, password, ...restOrtuData } = ortuData;
     const transaction = await sequelize.transaction();
 
     try {
-        // 1. Buat data Ortu terlebih dahulu
-        const newOrtu = await Ortu.create(ortuData, { transaction });
+        let ortuPayload = { ...restOrtuData };
 
-        // 2. Buat data Santri dengan id_ortu dari data yang baru dibuat
+        if (username && password) {
+            const ortuRole = await Role.findOne({ where: { slug: 'orang-tua' } });
+            if (!ortuRole) {
+                await transaction.rollback();
+                return res.status(500).json({ message: "Role 'orang-tua' tidak ditemukan di database. Silakan hubungi administrator." });
+            }
+
+            const existingUser = await User.findOne({ where: { username } });
+            if (existingUser) {
+                await transaction.rollback();
+                return res.status(400).json({ message: 'Username sudah digunakan.' });
+            }
+
+            const hashedPassword = await bcrypt.hash(password, 8);
+
+            const newUser = await User.create({
+                nama: ortuData.nama_ortu_lk || `Wali dari ${santriData.nama}`,
+                username: username,
+                email: `${username}-${Date.now()}@pesantren.local`,
+                password: hashedPassword,
+                id_role: ortuRole.id_role,
+                jenis_kelamin: null, 
+            }, { transaction });
+
+            ortuPayload.id_user = newUser.id_user;
+        }
+
+        const newOrtu = await Ortu.create(ortuPayload, { transaction });
+
         await Santri.create({
             ...santriData,
             id_ortu: newOrtu.id_ortu
@@ -77,7 +114,6 @@ const create = async (req, res) => {
     } catch (error) {
         await transaction.rollback();
         console.error("Error creating santri:", error);
-        // Memberikan pesan error yang lebih spesifik jika ada validation error
         if (error.name === 'SequelizeValidationError') {
             const messages = error.errors.map(e => e.message);
             return res.status(400).json({ message: 'Data tidak valid', errors: messages });
@@ -86,35 +122,63 @@ const create = async (req, res) => {
     }
 };
 
-// --- UPDATE SANTRI (dengan data ortu) ---
 const update = async (req, res) => {
   const { id } = req.params;
-  const { Ortu: ortuData, ...santriData } = req.body;
+  const { Ortu: ortuData, newPassword, newUsername, ...santriData } = req.body;
   const transaction = await sequelize.transaction();
 
   try {
-    const santri = await Santri.findByPk(id);
+    const santri = await Santri.findByPk(id, { include: [Ortu], transaction });
     if (!santri) {
         await transaction.rollback();
         return res.status(404).json({ message: 'Santri tidak ditemukan' });
     }
 
-    // 1. Update data Santri
-    // Hapus id_ortu dari santriData agar tidak terupdate langsung
     delete santriData.id_ortu;
     await santri.update(santriData, { transaction });
 
-    // 2. Update atau Buat data Ortu
     if (santri.id_ortu && ortuData) {
-        // Jika santri sudah punya ortu, update datanya
         await Ortu.update(ortuData, {
             where: { id_ortu: santri.id_ortu },
             transaction
         });
     } else if (ortuData) {
-        // Jika santri belum punya ortu, buat baru dan hubungkan
         const newOrtu = await Ortu.create(ortuData, { transaction });
         await santri.update({ id_ortu: newOrtu.id_ortu }, { transaction });
+    }
+    
+    // --- PERBAIKAN LOGIKA MANAJEMEN AKUN ---
+
+    // Muat ulang data santri dan ortu setelah update untuk mendapatkan data terbaru
+    const updatedSantri = await Santri.findByPk(id, { include: [Ortu], transaction });
+    
+    // Kasus 1: Buat user baru jika belum ada & form diisi
+    if (updatedSantri.Ortu && !updatedSantri.Ortu.id_user && newUsername && newPassword) {
+        const ortuRole = await Role.findOne({ where: { slug: 'orang-tua' }, transaction });
+        if (!ortuRole) throw new Error("Role 'orang-tua' tidak ditemukan.");
+
+        const existingUser = await User.findOne({ where: { username: newUsername }, transaction });
+        if (existingUser) throw new Error('Username sudah digunakan.');
+
+        const hashedPassword = await bcrypt.hash(newPassword, 8);
+        const newUser = await User.create({
+            nama: updatedSantri.Ortu.nama_ortu_lk || `Wali dari ${updatedSantri.nama}`,
+            username: newUsername,
+            email: `${newUsername}-${Date.now()}@pesantren.local`,
+            password: hashedPassword,
+            id_role: ortuRole.id_role,
+            jenis_kelamin: null,
+        }, { transaction });
+        
+        await Ortu.update({ id_user: newUser.id_user }, { where: { id_ortu: updatedSantri.id_ortu }, transaction });
+    } 
+    // Kasus 2: Reset password untuk user yang sudah ada
+    else if (updatedSantri.Ortu && updatedSantri.Ortu.id_user && newPassword) {
+        const hashedPassword = await bcrypt.hash(newPassword, 8);
+        await User.update(
+            { password: hashedPassword },
+            { where: { id_user: updatedSantri.Ortu.id_user }, transaction }
+        );
     }
     
     await transaction.commit();
@@ -127,44 +191,27 @@ const update = async (req, res) => {
   }
 };
 
-// --- PROMOTE ALL SANTRI (Fitur Naik Kelas) ---
+
 const promoteAll = async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
-        // 1. Ambil jenis kelamin admin dari data user yang login
         const adminJenisKelamin = req.user.jenis_kelamin;
         const whereCondition = {};
 
-        // 2. Buat kondisi filter jika admin adalah admin Putra atau Putri
         if (adminJenisKelamin === 'Putra' || adminJenisKelamin === 'Putri') {
             whereCondition.jenis_kelamin = adminJenisKelamin;
         }
         
-        // 3. Jadikan santri kelas 6 menjadi Alumni (kelas 7), SESUAI GENDER ADMIN
         const [graduatedCount] = await Santri.update(
             { id_kelas: 7 },
-            { 
-                where: {
-                    ...whereCondition, // Terapkan filter gender
-                    id_kelas: 6 
-                },
-                transaction 
-            }
+            { where: { ...whereCondition, id_kelas: 6 }, transaction }
         );
 
-        // 4. Naikkan kelas 1 tingkat untuk santri di kelas 1 s/d 5, SESUAI GENDER ADMIN
         const [promotedResult] = await Santri.update(
             { id_kelas: sequelize.literal('id_kelas + 1') },
-            {
-                where: {
-                    ...whereCondition, // Terapkan filter gender
-                    id_kelas: { [Op.between]: [1, 5] } 
-                },
-                transaction
-            }
+            { where: { ...whereCondition, id_kelas: { [Op.between]: [1, 5] } }, transaction }
         );
         const promotedCount = Array.isArray(promotedResult) ? promotedResult.length : promotedResult;
-
 
         if (promotedCount === 0 && graduatedCount === 0) {
             await transaction.commit();
@@ -183,7 +230,6 @@ const promoteAll = async (req, res) => {
     }
 };
 
-// --- GET ALL KELAS (untuk dropdown) ---
 const getAllKelas = async (req, res) => {
     try {
         const kelas = await Kelas.findAll({ order: [['id_kelas', 'ASC']] });
@@ -201,3 +247,4 @@ module.exports = {
   promoteAll,
   getAllKelas,
 };
+

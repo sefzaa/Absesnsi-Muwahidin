@@ -2,22 +2,18 @@
 
 import { Fragment } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { useRouter, usePathname } from "next/navigation";
 import clsx from "clsx";
 import { Menu, Transition } from "@headlessui/react";
 import {
   FiHome,
   FiUserCheck,
-  FiAward,
-  FiAlertTriangle,
-  FiSend,
-  FiBookOpen,
   FiFileText,
   FiLogOut,
+  FiSettings, // <-- Ikon baru ditambahkan
 } from "react-icons/fi";
 import { useAuth } from "@/app/AuthContext";
 
-// REVISI: Definisikan URL backend untuk gambar
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
 const menuItems = [
@@ -26,23 +22,16 @@ const menuItems = [
     items: [
       { name: "Dashboard", icon: FiHome, href: "/guru" },
       { name: "Absensi", icon: FiUserCheck, href: "/guru/absensi" },
-      // { name: "Tahfidz", icon: FiBookOpen, href: "/wali-kamar/tahfidz" },
-      // { name: "Hafalan", icon: FiBookOpen, href: "/wali-kamar/hafalan" },
-      // { name: "Perizinan", icon: FiSend, href: "/wali-kamar/perizinan" },
-      // { name: "Prestasi", icon: FiAward, href: "/wali-kamar/prestasi" },
-      // {
-      //   name: "Pelanggaran",
-      //   icon: FiAlertTriangle,
-      //   href: "/wali-kamar/pelanggaran",
-      // },
       { name: "Riwayat", icon: FiFileText, href: "/guru/riwayat" },
     ],
   },
 ];
 
-export default function SidebarMusyrif({ setSidebarOpen, user }) {
+// Ganti nama komponen menjadi SidebarGuru
+export default function SidebarGuru({ setSidebarOpen }) {
   const pathname = usePathname();
-  const { logout } = useAuth();
+  const { user, logout } = useAuth();
+  const router = useRouter();
 
   const handleLinkClick = () => {
     if (setSidebarOpen) {
@@ -52,27 +41,22 @@ export default function SidebarMusyrif({ setSidebarOpen, user }) {
   
   let displayTitle = '...';
   if (user) {
-    if (user.role === 'Pegawai' && user.jabatan) {
-      // Jika rolenya 'pegawai' dan punya jabatan, tampilkan jabatannya
-      displayTitle = user.jabatan;
-    } else {
-      // Jika tidak, tampilkan nama rolenya (misal: "Admin Asrama")
-      displayTitle = user.role_name || user.role;
-    }
+    displayTitle = user.jabatan || user.role_name || user.role;
   }
 
-  // REVISI: Buat URL avatar yang lengkap
   const avatarUrl = user && user.avatar 
     ? `${backendUrl}/${user.avatar}` 
     : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=880&q=80";
+    
+  const handleLogout = () => {
+    logout(() => router.push('/'));
+  };
 
   return (
     <aside className="bg-white w-full h-full flex flex-col">
-      {/* Header Sidebar dengan Profil Pengguna */}
       <div className="p-4 shadow-sm">
         <Menu as="div" className="relative">
           <Menu.Button className="w-full flex items-center gap-3 text-left p-2 rounded-lg hover:bg-gray-100 transition-colors">
-            {/* REVISI: Gunakan avatarUrl dinamis */}
             <img
               src={avatarUrl}
               alt="User avatar"
@@ -98,10 +82,24 @@ export default function SidebarMusyrif({ setSidebarOpen, user }) {
           >
             <Menu.Items className="absolute z-10 mt-2 w-full origin-top-right rounded-md bg-white shadow-lg focus:outline-none">
               <div className="py-1">
+                {/* --- TAMBAHAN MENU PENGATURAN --- */}
+                <Menu.Item>
+                  {({ active }) => (
+                    <Link
+                      href="/guru/pengaturan"
+                      className={clsx(
+                        'w-full text-left flex items-center gap-3 px-4 py-2 text-sm',
+                        active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
+                      )}
+                    >
+                      <FiSettings /> Pengaturan Akun
+                    </Link>
+                  )}
+                </Menu.Item>
                 <Menu.Item>
                   {({ active }) => (
                     <button 
-                      onClick={logout} 
+                      onClick={handleLogout} 
                       className={clsx(
                         'w-full text-left flex items-center gap-3 px-4 py-2 text-sm', 
                         active ? 'bg-red-100 text-red-700' : 'text-red-600' 
@@ -116,8 +114,6 @@ export default function SidebarMusyrif({ setSidebarOpen, user }) {
           </Transition>
         </Menu>
       </div>
-
-      {/* Navigasi Menu */}
       <nav className="flex-1 p-4 space-y-4 overflow-y-auto">
         {menuItems.map((menuGroup) => (
           <div key={menuGroup.group}>
@@ -133,10 +129,8 @@ export default function SidebarMusyrif({ setSidebarOpen, user }) {
                     className={clsx(
                       "flex items-center gap-3 px-3 py-2 rounded-lg transition-colors",
                       {
-                        "bg-indigo-100 text-indigo-700 font-semibold":
-                          pathname === item.href,
-                        "text-gray-600 hover:bg-gray-100 hover:text-gray-900":
-                          pathname !== item.href,
+                        "bg-indigo-100 text-indigo-700 font-semibold": pathname === item.href,
+                        "text-gray-600 hover:bg-gray-100 hover:text-gray-900": pathname !== item.href,
                       }
                     )}
                   >

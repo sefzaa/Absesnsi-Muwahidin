@@ -8,9 +8,8 @@ import { Menu, Transition } from "@headlessui/react";
 import {
   FiHome,
   FiUserCheck,
-  FiFileText,
   FiLogOut,
-  FiSettings, // <-- Termasuk ikon baru
+  FiSettings, // <-- 1. IMPORT IKON BARU
 } from "react-icons/fi";
 import { useAuth } from "@/app/AuthContext";
 
@@ -20,14 +19,13 @@ const menuItems = [
   {
     group: "Main Menu",
     items: [
-      { name: "Dashboard", icon: FiHome, href: "/musyrif" },
-      { name: "Absensi", icon: FiUserCheck, href: "/musyrif/absensi" },
-      { name: "Rekap", icon: FiFileText, href: "/musyrif/rekap" },
+      { name: "Dashboard", icon: FiHome, href: "/ortu" },
+      { name: "Absensi Anak", icon: FiUserCheck, href: "/ortu/absensi-santri" },
     ],
   },
 ];
 
-export default function SidebarMusyrif({ setSidebarOpen }) {
+export default function SidebarOrtu({ setSidebarOpen }) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
   const router = useRouter();
@@ -40,13 +38,15 @@ export default function SidebarMusyrif({ setSidebarOpen }) {
   
   let displayTitle = '...';
   if (user) {
-    displayTitle = user.jabatan || user.role_name || user.role;
+    if (user.slug === 'orang-tua') {
+      displayTitle = 'Wali Santri';
+    } else {
+      displayTitle = user.role_name || user.role;
+    }
   }
 
-  const avatarUrl = user && user.avatar 
-    ? `${backendUrl}/${user.avatar}` 
-    : "https://images.unsplash.com/photo-1633332755192-727a05c4013d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=880&q=80";
-    
+  const avatarUrl = "https://images.unsplash.com/photo-1633332755192-727a05c4013d?ixlib=rb-4.0.3&ixid=M3wxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8fA%3D%3D&auto=format&fit=crop&w=880&q=80";
+
   const handleLogout = () => {
     logout(() => router.push('/'));
   };
@@ -81,10 +81,11 @@ export default function SidebarMusyrif({ setSidebarOpen }) {
           >
             <Menu.Items className="absolute z-10 mt-2 w-full origin-top-right rounded-md bg-white shadow-lg focus:outline-none">
               <div className="py-1">
+                {/* --- ▼▼▼ 2. TAMBAHKAN MENU ITEM BARU DI SINI ▼▼▼ --- */}
                 <Menu.Item>
                   {({ active }) => (
                     <Link
-                      href="/musyrif/pengaturan"
+                      href="/ortu/pengaturan"
                       className={clsx(
                         'w-full text-left flex items-center gap-3 px-4 py-2 text-sm',
                         active ? 'bg-gray-100 text-gray-900' : 'text-gray-700'
@@ -94,6 +95,8 @@ export default function SidebarMusyrif({ setSidebarOpen }) {
                     </Link>
                   )}
                 </Menu.Item>
+                {/* --- ▲▲▲ AKHIR TAMBAHAN --- */}
+
                 <Menu.Item>
                   {({ active }) => (
                     <button 
@@ -144,4 +147,3 @@ export default function SidebarMusyrif({ setSidebarOpen }) {
     </aside>
   );
 }
-
