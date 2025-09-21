@@ -230,9 +230,17 @@ const promoteAll = async (req, res) => {
     }
 };
 
+// --- PERUBAHAN: Memfilter kelas "Alumni" ---
 const getAllKelas = async (req, res) => {
     try {
-        const kelas = await Kelas.findAll({ order: [['id_kelas', 'ASC']] });
+        const kelas = await Kelas.findAll({ 
+            where: {
+                nama_kelas: {
+                    [Op.ne]: 'Alumni'
+                }
+            },
+            order: [['id_kelas', 'ASC']] 
+        });
         res.status(200).json(kelas);
     } catch (error) {
         res.status(500).json({ message: 'Gagal mengambil data kelas' });

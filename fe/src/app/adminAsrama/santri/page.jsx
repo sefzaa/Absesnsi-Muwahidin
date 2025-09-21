@@ -354,8 +354,20 @@ export default function SantriPage() {
                                     <textarea required value={newSantriData.alamat} onChange={(e) => setNewSantriData({...newSantriData, alamat: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
                                 </div>
                                 <div>
+                                    {/* --- PERBAIKAN: Input tahun masuk divalidasi --- */}
                                     <label className="block text-sm font-medium text-gray-700">Tahun Masuk</label>
-                                    <input type="text" required value={newSantriData.tahun_masuk} onChange={(e) => setNewSantriData({...newSantriData, tahun_masuk: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                    <input 
+                                        type="number"
+                                        placeholder="YYYY"
+                                        required 
+                                        value={newSantriData.tahun_masuk} 
+                                        onChange={(e) => {
+                                            if (e.target.value.length <= 4) {
+                                                setNewSantriData({...newSantriData, tahun_masuk: e.target.value});
+                                            }
+                                        }} 
+                                        className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" 
+                                    />
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Kelas</label>

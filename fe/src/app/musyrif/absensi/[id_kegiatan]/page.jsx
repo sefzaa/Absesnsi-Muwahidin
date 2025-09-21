@@ -1,4 +1,3 @@
-// file: src/app/wali-kamar/absensi/[id_kegiatan]/page.jsx
 "use client";
 
 import { useState, useEffect, Fragment } from 'react';
@@ -14,17 +13,19 @@ const statusOptions = ['Hadir', 'Alpa', 'Izin', 'Sakit'];
 
 const getStatusClasses = (status) => {
     switch (status.toLowerCase()) {
-        case 'hadir': return 'bg-green-100 text-green-700';
-        case 'alpa': return 'bg-red-100 text-red-700';
-        case 'izin': return 'bg-yellow-100 text-yellow-700';
-        case 'sakit': return 'bg-blue-100 text-blue-700';
-        default: return 'bg-gray-100 text-gray-700';
+        case 'hadir': return 'bg-green-100 text-green-800';
+        case 'alpa': return 'bg-red-100 text-red-800';
+        case 'izin': return 'bg-yellow-100 text-yellow-800';
+        case 'sakit': return 'bg-blue-100 text-blue-800';
+        default: return 'bg-gray-100 text-gray-800';
     }
 };
 
 export default function AbsensiDetailPage() { 
     const params = useParams(); 
     const router = useRouter();
+    // Path untuk musyrif
+    const basePath = '/musyrif/absensi';
     const { id_kegiatan: id_kegiatan_unik } = params;
 
     const [groupedStudents, setGroupedStudents] = useState([]);
@@ -64,7 +65,7 @@ export default function AbsensiDetailPage() {
                 console.error(error);
                 setNotifContent({ message: error.message, type: 'error' });
                 setShowNotif(true);
-                setTimeout(() => setShowNotif(false), 2000);
+                setTimeout(() => setShowNotif(false), 3000);
             } finally {
                 setIsLoading(false);
             }
@@ -105,7 +106,7 @@ export default function AbsensiDetailPage() {
             setShowNotif(true);
 
             setTimeout(() => {
-                router.push('/musyrif/absensi');
+                router.push(basePath); 
             }, 2000);
 
         } catch (error) {
@@ -114,16 +115,16 @@ export default function AbsensiDetailPage() {
             setTimeout(() => {
                 setShowNotif(false);
                 setIsSaving(false);
-            }, 2000);
+            }, 3000);
         } 
     };
 
     const TemporaryNotification = () => (
         <Transition show={showNotif} as={Fragment} enter="transition-opacity duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="transition-opacity duration-300" leaveFrom="opacity-100" leaveTo="opacity-0">
-            <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center z-50">
-                <div className="bg-white rounded-lg p-6 flex items-center gap-4 shadow-xl">
-                    {notifContent.type === 'success' ? <FiCheckCircle className="h-8 w-8 text-green-500" /> : <FiXCircle className="h-8 w-8 text-red-500" />}
-                    <span className="text-lg font-medium text-gray-800">{notifContent.message}</span>
+            <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+                <div className="bg-white rounded-lg p-6 flex items-center gap-4 shadow-2xl w-full max-w-sm">
+                    {notifContent.type === 'success' ? <FiCheckCircle className="h-8 w-8 text-green-500 flex-shrink-0" /> : <FiXCircle className="h-8 w-8 text-red-500 flex-shrink-0" />}
+                    <span className="text-base font-medium text-gray-800">{notifContent.message}</span>
                 </div>
             </div>
         </Transition>
@@ -134,18 +135,18 @@ export default function AbsensiDetailPage() {
     const StatusSelector = ({ student }) => (
         <Listbox value={student.status} onChange={(newStatus) => handleStatusChange(selectedTab, student.id_santri, newStatus)}>
             <div className="relative w-32">
-                <Listbox.Button className={`relative w-full cursor-default rounded-full py-1.5 pl-3 pr-10 text-left text-xs font-medium focus:outline-none ${getStatusClasses(student.status)}`}>
+                <Listbox.Button className={`relative w-full cursor-default rounded-full py-2 pl-4 pr-10 text-left text-sm font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-opacity-75 focus-visible:ring-offset-2 focus-visible:ring-offset-blue-300 transition-shadow shadow-sm hover:shadow-md ${getStatusClasses(student.status)}`}>
                     <span className="block truncate">{student.status}</span>
-                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2"><FiChevronDown className="h-4 w-4" aria-hidden="true" /></span>
+                    <span className="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-2"><FiChevronDown className="h-5 w-5 text-gray-500" aria-hidden="true" /></span>
                 </Listbox.Button>
                 <Transition as={Fragment} leave="transition ease-in duration-100" leaveFrom="opacity-100" leaveTo="opacity-0">
-                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-md bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm z-10">
+                    <Listbox.Options className="absolute mt-1 max-h-60 w-full overflow-auto rounded-xl bg-white py-1 text-base shadow-lg ring-1 ring-black ring-opacity-5 focus:outline-none sm:text-sm z-20">
                         {statusOptions.map((status, statusIdx) => (
-                            <Listbox.Option key={statusIdx} className={({ active }) => `relative cursor-default select-none py-2 pl-10 pr-4 ${ active ? 'bg-indigo-100 text-indigo-900' : 'text-gray-900' }`} value={status}>
+                            <Listbox.Option key={statusIdx} className={({ active }) => `relative cursor-default select-none py-2 pl-10 pr-4 ${ active ? 'bg-blue-100 text-blue-900' : 'text-gray-900' }`} value={status}>
                                 {({ selected }) => (
                                     <>
-                                        <span className={`block truncate ${ selected ? 'font-medium' : 'font-normal' }`}>{status}</span>
-                                        {selected ? (<span className="absolute inset-y-0 left-0 flex items-center pl-3 text-indigo-600"><FiCheck className="h-5 w-5" aria-hidden="true" /></span>) : null}
+                                        <span className={`block truncate ${ selected ? 'font-semibold' : 'font-normal' }`}>{status}</span>
+                                        {selected ? (<span className="absolute inset-y-0 left-0 flex items-center pl-3 text-blue-600"><FiCheck className="h-5 w-5" aria-hidden="true" /></span>) : null}
                                     </>
                                 )}
                             </Listbox.Option>
@@ -160,35 +161,58 @@ export default function AbsensiDetailPage() {
         <div className="space-y-6">
             <TemporaryNotification />
 
-            {/* --- 1. HEADER RESPONSIVE --- */}
             <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-4">
-                 <h2 className="text-lg font-semibold text-gray-700 leading-tight">
-                    Kegiatan - <span className="text-gray-900 font-bold">{currentDate}</span>
-                    <br className="sm:hidden" />
-                    <span className="text-base sm:text-lg"> &gt; <span className="font-bold">{kegiatanName}</span></span>
-                </h2>
-                <button onClick={handleSave} disabled={isSaving || isLoading} className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed">
-                    {isSaving ? <FiLoader className="animate-spin" /> : <FiSave size={18} />}
-                    <span>{isSaving ? 'Menyimpan...' : 'Simpan'}</span>
+                 <div className="flex-grow">
+                    <h2 className="text-xl font-bold text-gray-800 leading-tight">
+                        Absensi: {kegiatanName}
+                    </h2>
+                    <p className="text-sm text-gray-500">{currentDate}</p>
+                 </div>
+                <button 
+                    onClick={handleSave} 
+                    disabled={isSaving || isLoading} 
+                    className="w-full sm:w-auto flex-shrink-0 flex items-center justify-center gap-2 px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-lg shadow-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-all duration-300 disabled:opacity-60 disabled:cursor-not-allowed disabled:shadow-none"
+                >
+                    {isSaving ? <FiLoader className="animate-spin h-5 w-5" /> : <FiSave size={18} />}
+                    <span>{isSaving ? 'Menyimpan...' : 'Simpan Absensi'}</span>
                 </button>
             </div>
             
             {isLoading ? (
-                <div className="text-center py-10"><FiLoader className="animate-spin inline-block mr-2" /> Memuat data...</div>
+                <div className="text-center py-20 flex flex-col items-center justify-center">
+                    <FiLoader className="animate-spin h-8 w-8 text-blue-500" />
+                    <p className="mt-4 text-gray-600">Memuat data santri...</p>
+                </div>
             ) : groupedStudents.length > 0 ? (
-                <div className="bg-white rounded-lg shadow-sm border">
-                    {/* --- 2. NAVIGASI TAB RESPONSIVE --- */}
+                <div className="bg-white rounded-xl shadow-sm border border-gray-200">
+                    
+                    {/* --- [PERBAIKAN] NAVIGASI TAB KELAS YANG LEBIH RESPONSIVE --- */}
                     <div className="border-b border-gray-200">
                         <div className="overflow-x-auto">
-                            <nav className="-mb-px flex space-x-6 px-4 sm:px-6 flex-nowrap min-w-full" aria-label="Tabs">
+                            {/* Perubahan: Jarak dan padding diatur ulang agar lebih kompak di mobile */}
+                            <nav className="-mb-px flex" aria-label="Tabs">
                                 {groupedStudents.map((kelas, index) => (
                                     <button
                                         key={kelas.id_kelas}
                                         onClick={() => setSelectedTab(index)}
-                                        className={`whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors ${ selectedTab === index ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' }`}
+                                        // Perubahan: Padding (px, py) dan ukuran teks (text) dibuat lebih kecil di mobile
+                                        // dan akan membesar di layar sm (640px) ke atas.
+                                        className={`flex-shrink-0 whitespace-nowrap py-3 px-3 text-xs border-b-2 font-medium 
+                                            sm:py-4 sm:px-5 sm:text-sm
+                                            transition-colors duration-200 focus:outline-none 
+                                            ${ selectedTab === index 
+                                                ? 'border-blue-500 text-blue-600' 
+                                                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300' 
+                                            }`}
                                     >
                                         {kelas.nama_kelas}
-                                        <span className={`ml-2 text-xs font-semibold py-0.5 px-2 rounded-full ${ selectedTab === index ? 'bg-blue-100 text-blue-600' : 'bg-gray-100 text-gray-600' }`}>
+                                        {/* Perubahan: Badge jumlah santri juga dikecilkan di mobile */}
+                                        <span className={`ml-2 text-[10px] font-bold py-0.5 px-2 rounded-full 
+                                            sm:text-xs sm:py-1 sm:px-2.5 
+                                            ${ selectedTab === index 
+                                                ? 'bg-blue-100 text-blue-600' 
+                                                : 'bg-gray-100 text-gray-600' 
+                                            }`}>
                                             {kelas.santri.length}
                                         </span>
                                     </button>
@@ -197,23 +221,21 @@ export default function AbsensiDetailPage() {
                         </div>
                     </div>
 
-                    {/* --- 3. KONTEN TAB RESPONSIVE (TABEL & KARTU) --- */}
                     <div className="p-4 sm:p-6">
                         {currentRoom && (
                             <div>
-                                {/* TAMPILAN TABEL UNTUK DESKTOP (md ke atas) */}
                                 <table className="w-full text-sm text-left hidden md:table">
-                                    <thead className="bg-gray-50/50 text-gray-500">
+                                    <thead className="bg-gray-50 text-gray-600 uppercase text-xs">
                                         <tr>
-                                            <th className="p-4 font-medium w-16">NO</th>
-                                            <th className="p-4 font-medium">NAMA</th>
-                                            <th className="p-4 font-medium">STATUS</th>
+                                            <th className="p-4 font-semibold w-16">No</th>
+                                            <th className="p-4 font-semibold">Nama Santri</th>
+                                            <th className="p-4 font-semibold">Status Kehadiran</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y">
+                                    <tbody className="divide-y divide-gray-200">
                                         {currentRoom.santri.map((student, studentIndex) => (
-                                            <tr key={student.id_santri} className="hover:bg-gray-50">
-                                                <td className="p-4 text-gray-600">{studentIndex + 1}</td>
+                                            <tr key={student.id_santri} className="hover:bg-gray-50/50">
+                                                <td className="p-4 text-gray-600 font-medium">{studentIndex + 1}</td>
                                                 <td className="p-4 font-semibold text-gray-800">{student.nama}</td>
                                                 <td className="p-4">
                                                     <StatusSelector student={student} />
@@ -223,15 +245,18 @@ export default function AbsensiDetailPage() {
                                     </tbody>
                                 </table>
 
-                                {/* TAMPILAN KARTU UNTUK MOBILE (di bawah md) */}
-                                <div className="space-y-3 md:hidden">
+                                <div className="grid grid-cols-1 gap-4 md:hidden">
                                     {currentRoom.santri.map((student, studentIndex) => (
-                                        <div key={student.id_santri} className="bg-gray-50 rounded-lg p-4 flex justify-between items-center">
-                                            <div>
-                                                <p className="font-semibold text-gray-800">{student.nama}</p>
-                                                <p className="text-xs text-gray-500">No. {studentIndex + 1}</p>
+                                        <div key={student.id_santri} className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+                                            <div className="flex flex-col space-y-3">
+                                                <div>
+                                                    <p className="font-bold text-gray-800 text-base">{student.nama}</p>
+                                                    <p className="text-xs text-gray-500 font-medium">No. {studentIndex + 1}</p>
+                                                </div>
+                                                <div className="flex items-center justify-end pt-2 border-t border-gray-100">
+                                                    <StatusSelector student={student} />
+                                                </div>
                                             </div>
-                                            <StatusSelector student={student} />
                                         </div>
                                     ))}
                                 </div>
@@ -240,7 +265,10 @@ export default function AbsensiDetailPage() {
                     </div>
                 </div>
             ) : (
-                <div className="text-center text-gray-500 py-10">Tidak ada santri yang diasuh.</div>
+                <div className="text-center text-gray-500 py-20 bg-gray-50 rounded-lg">
+                    <p className="font-semibold">Tidak ada data santri</p>
+                    <p className="text-sm mt-1">Tidak ada santri yang terdaftar dalam kegiatan ini.</p>
+                </div>
             )}
         </div>
     );

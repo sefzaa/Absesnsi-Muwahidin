@@ -19,6 +19,10 @@ const rekapAbsenSekolahRoutes = require("./rekapAbsenSekolah.js");
 const rekapAbsenPegawaiRoutes = require("./rekapAbsenPegawai.js");
 const ortuRoutes = require("./ortu.js");
 const userRoutes = require("./user.js");
+const direkturRoutes = require("./direktur.js");
+const rekapGuruRoutes = require("./rekapGuru.js");
+const rekapMusyrifRoutes = require("./rekapMusyrif.js");
+
 
 // Buat objek untuk menampung semua rute
 const router = {};
@@ -42,6 +46,10 @@ router.rekapAbsenSekolah = rekapAbsenSekolahRoutes;
 router.rekapAbsenPegawai = rekapAbsenPegawaiRoutes;
 router.ortu = ortuRoutes;
 router.user = userRoutes;
+router.direktur = direkturRoutes;
+router.rekapGuru = rekapGuruRoutes;
+router.rekapMusyrif = rekapMusyrifRoutes;
+
 
 // Ekspor objek yang berisi semua rute
 module.exports = router;

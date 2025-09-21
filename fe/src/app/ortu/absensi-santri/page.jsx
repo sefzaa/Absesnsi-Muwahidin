@@ -1,4 +1,3 @@
-// file: src/app/ortu/absensi-santri/page.jsx
 "use client";
 
 import { useState, useEffect, useMemo } from 'react';
@@ -11,24 +10,35 @@ const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000
 moment.locale('id');
 moment.tz.setDefault('Asia/Jakarta');
 
+const getStatusClasses = (status) => {
+    switch (status) {
+        case 'Hadir': return 'bg-green-100 text-green-800';
+        case 'Izin': return 'bg-blue-100 text-blue-800';
+        case 'Sakit': return 'bg-yellow-100 text-yellow-800';
+        default: return 'bg-red-100 text-red-800';
+    }
+};
+
 const PerformanceCard = ({ title, percentage, colorClass }) => (
-    <div className="bg-white p-4 rounded-lg shadow">
-        <p className="text-sm text-gray-500">{title}</p>
+    <div className="bg-white p-4 rounded-xl shadow-sm border">
+        <p className="text-sm font-medium text-gray-500">{title}</p>
         <p className={`text-3xl font-bold ${colorClass}`}>{percentage.toFixed(1)}%</p>
     </div>
 );
 
+// [PERUBAHAN] Komponen AbsenTable sekarang responsif
 const AbsenTable = ({ data, type, isLoading }) => {
     if (isLoading) return null;
     if (data.length === 0) {
-        return <p className="text-center text-gray-500 py-4">Tidak ada data absensi pada periode ini.</p>;
+        return <p className="text-center text-gray-500 py-8">Tidak ada data absensi pada periode ini.</p>;
     }
 
     const isAsrama = type === 'asrama';
 
     return (
-        <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
+        <>
+            {/* Tampilan Tabel untuk Desktop (md ke atas) */}
+            <table className="min-w-full divide-y divide-gray-200 hidden md:table">
                 <thead className="bg-gray-50">
                     <tr>
                         <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
@@ -40,15 +50,11 @@ const AbsenTable = ({ data, type, isLoading }) => {
                 <tbody className="bg-white divide-y divide-gray-200">
                     {data.map((item) => (
                         <tr key={isAsrama ? item.id_absen_kegiatan : item.id_absen_sekolah}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{moment(item.tanggal).format('dddd, DD MMMM YYYY')}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{isAsrama ? item.nama_kegiatan : item.JamPelajaran.nama_jam}</td>
-                            {!isAsrama && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">{item.JamPelajaran.jam_mulai.substring(0, 5)} - {item.JamPelajaran.jam_selesai.substring(0, 5)}</td>}
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{moment(item.tanggal).format('dddd, DD MMMM YYYY')}</td>
+                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{isAsrama ? item.nama_kegiatan : item.JamPelajaran.nama_jam}</td>
+                            {!isAsrama && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.JamPelajaran.jam_mulai.substring(0, 5)} - {item.JamPelajaran.jam_selesai.substring(0, 5)}</td>}
                             <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
-                                    item.status === 'Hadir' ? 'bg-green-100 text-green-800' :
-                                    item.status === 'Izin' ? 'bg-blue-100 text-blue-800' :
-                                    item.status === 'Sakit' ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800'
-                                }`}>
+                                <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(item.status)}`}>
                                     {item.status}
                                 </span>
                             </td>
@@ -56,9 +62,38 @@ const AbsenTable = ({ data, type, isLoading }) => {
                     ))}
                 </tbody>
             </table>
-        </div>
+
+            {/* Tampilan Kartu untuk Mobile (di bawah md) */}
+            <div className="grid grid-cols-1 gap-4 md:hidden">
+                {data.map((item) => (
+                    <div key={isAsrama ? item.id_absen_kegiatan : item.id_absen_sekolah} className="bg-white p-4 rounded-lg shadow-sm border">
+                        <div className="flex justify-between items-start">
+                            <div className="flex-1">
+                                <p className="font-bold text-gray-800">
+                                    {isAsrama ? item.nama_kegiatan : item.JamPelajaran.nama_jam}
+                                </p>
+                                <p className="text-sm text-gray-500 mt-1">
+                                    {moment(item.tanggal).format('dddd, DD MMM YYYY')}
+                                </p>
+                                {!isAsrama && (
+                                    <p className="text-sm text-gray-500">
+                                        Pukul {item.JamPelajaran.jam_mulai.substring(0, 5)} - {item.JamPelajaran.jam_selesai.substring(0, 5)}
+                                    </p>
+                                )}
+                            </div>
+                            <div className="ml-4">
+                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(item.status)}`}>
+                                    {item.status}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </>
     );
 };
+
 
 export default function AbsensiSantriPage() {
     const { token } = useAuth();
@@ -124,7 +159,6 @@ export default function AbsensiSantriPage() {
     }, [absensiData]);
 
     const handleCetak = () => {
-        // ... (fungsi cetak sama seperti sebelumnya)
         const santriName = anakList.find(a => a.id_santri === selectedAnak)?.nama || 'Santri';
         const period = moment(`${filterTahun}-${filterBulan}-01`).format('MMMM YYYY');
         
@@ -170,34 +204,34 @@ export default function AbsensiSantriPage() {
 
     return (
         <div className="space-y-6">
-            <div className="bg-white p-4 rounded-lg shadow-md space-y-4">
+            <div className="bg-white p-4 rounded-xl shadow-sm border space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
-                    <div>
-                        <label className="block text-sm font-medium text-gray-700">Pilih Anak</label>
+                    <div className="md:col-span-1">
+                        <label className="block text-sm font-medium text-gray-700 mb-1">Pilih Anak</label>
                         <select
                             value={selectedAnak}
                             onChange={(e) => setSelectedAnak(Number(e.target.value))}
-                            className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md text-gray-700"
+                            className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md text-gray-700"
                             disabled={anakList.length === 0}
                         >
                             {anakList.map(anak => (<option key={anak.id_santri} value={anak.id_santri}>{anak.nama}</option>))}
                         </select>
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
-                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Bulan</label>
-                            <select value={filterBulan} onChange={e => setFilterBulan(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md text-gray-700">
+                    <div className="grid grid-cols-2 gap-4 md:col-span-1">
+                        <div>
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Bulan</label>
+                            <select value={filterBulan} onChange={e => setFilterBulan(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md text-gray-700">
                                 {moment.months().map((m, i) => (<option key={i+1} value={i+1}>{m}</option>))}
                             </select>
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700">Tahun</label>
-                            <select value={filterTahun} onChange={e => setFilterTahun(e.target.value)} className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md text-gray-700">
+                            <label className="block text-sm font-medium text-gray-700 mb-1">Tahun</label>
+                            <select value={filterTahun} onChange={e => setFilterTahun(e.target.value)} className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md text-gray-700">
                                 {generateYears().map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
                         </div>
                     </div>
-                    <button onClick={handleCetak} disabled={isLoading || (!absensiData.absensiKegiatan.length && !absensiData.absensiSekolah.length)} className="flex items-center justify-center gap-2 w-full md:w-auto bg-indigo-600 text-white px-4 py-2 rounded-md hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    <button onClick={handleCetak} disabled={isLoading || (absensiData.absensiKegiatan.length === 0 && absensiData.absensiSekolah.length === 0)} className="flex items-center justify-center gap-2 w-full md:w-auto bg-indigo-600 text-white px-4 py-2 rounded-md font-semibold hover:bg-indigo-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors duration-200">
                         <FiPrinter /> Cetak Rekap
                     </button>
                 </div>
@@ -213,19 +247,20 @@ export default function AbsensiSantriPage() {
                         <PerformanceCard title="Performa Kehadiran Sekolah" percentage={performanceStats.sekolah.percentage} colorClass="text-green-600" />
                     </div>
                     
-                    <div className="bg-white rounded-lg shadow-md">
+                    <div className="bg-white rounded-xl shadow-sm border">
                         <div className="border-b border-gray-200">
-                            <nav className="-mb-px flex space-x-8 px-4" aria-label="Tabs">
-                                <button onClick={() => setActiveTab('asrama')} className={`${activeTab === 'asrama' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
+                            {/* [PERUBAHAN] Navigasi Tab dibuat memenuhi kontainer */}
+                            <nav className="flex" aria-label="Tabs">
+                                <button onClick={() => setActiveTab('asrama')} className={`flex-1 text-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'asrama' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'}`}>
                                     Absensi Asrama
                                 </button>
-                                <button onClick={() => setActiveTab('sekolah')} className={`${activeTab === 'sekolah' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'} whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm`}>
+                                <button onClick={() => setActiveTab('sekolah')} className={`flex-1 text-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'sekolah' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'}`}>
                                     Absensi Sekolah
                                 </button>
                             </nav>
                         </div>
                         
-                        <div className="p-4">
+                        <div>
                            {activeTab === 'asrama' && <AbsenTable data={absensiData.absensiKegiatan} type="asrama" isLoading={isLoading} />}
                            {activeTab === 'sekolah' && <AbsenTable data={absensiData.absensiSekolah} type="sekolah" isLoading={isLoading} />}
                         </div>

@@ -49,6 +49,9 @@ app.use('/api/rekap-absen-sekolah', allRoutes.rekapAbsenSekolah); // <-- TAMBAHK
 app.use('/api/rekap-absen-pegawai', allRoutes.rekapAbsenPegawai); // <-- TAMBAHKAN BARIS INI
 app.use('/api/ortu', allRoutes.ortu); // <-- TAMBAHKAN BARIS INI
 app.use('/api/user', allRoutes.user); // <-- TAMBAHKAN BARIS INI
+app.use('/api/direktur', allRoutes.direktur); // <-- TAMBAHKAN BARIS INI
+app.use('/api/rekap-guru', allRoutes.rekapGuru); // <-- TAMBAHKAN BARIS INI
+app.use('/api/rekap-musyrif', allRoutes.rekapMusyrif); // <-- TAMBAHKAN BARIS INI
 
 
 // --- SINKRONISASI DATABASE DAN JALANKAN SERVER ---

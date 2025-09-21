@@ -28,6 +28,9 @@ const menuItems = [
       { name: 'Manajemen Kelas', href: '/tu/kelas-sekolah', icon: FiBook },
       { name: 'Rekap Kehadiran Santri', href: '/tu/rekap-santri', icon: FiFileText },
       { name: 'Rekap Kehadiran Pegawai', href: '/tu/rekap-pegawai', icon: FiFileText },
+      { name: 'Rekap Kehadiran Guru', href: '/tu/rekap-guru', icon: FiFileText },
+      { name: 'Rekap Kehadiran Musyrif', href: '/tu/rekap-musyrif', icon: FiFileText },
+
     ],
   },
 ];

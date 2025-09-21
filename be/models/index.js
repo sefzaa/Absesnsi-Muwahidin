@@ -29,8 +29,6 @@ db.User.belongsTo(db.Role, { foreignKey: 'id_role' });
 db.User.hasOne(db.Pegawai, { foreignKey: 'id_user', as: 'pegawai' });
 db.Pegawai.belongsTo(db.User, { foreignKey: 'id_user' });
 
-db.User.hasOne(db.WaliKamar, { foreignKey: 'id_user' });
-db.WaliKamar.belongsTo(db.User, { foreignKey: 'id_user' });
 
 db.User.hasOne(db.Ortu, { foreignKey: 'id_user' });
 db.Ortu.belongsTo(db.User, { foreignKey: 'id_user' });
@@ -109,6 +107,25 @@ db.Santri.hasMany(db.AbsenSekolah, { foreignKey: 'id_santri' });
 
 db.AbsenSekolah.belongsTo(db.Pegawai, { foreignKey: 'id_pegawai' });
 db.Pegawai.hasMany(db.AbsenSekolah, { foreignKey: 'id_pegawai' });
+
+
+
+// --- Relasi Baru untuk Absensi Guru ---
+db.AbsenGuru.belongsTo(db.Pegawai, { foreignKey: 'id_pegawai' });
+db.Pegawai.hasMany(db.AbsenGuru, { foreignKey: 'id_pegawai' });
+
+db.AbsenGuru.belongsTo(db.JamPelajaran, { foreignKey: 'id_jam_pelajaran' });
+db.JamPelajaran.hasMany(db.AbsenGuru, { foreignKey: 'id_jam_pelajaran' });
+
+db.AbsenGuru.belongsTo(db.AbsenSekolah, { foreignKey: 'id_absen_sekolah' });
+db.AbsenSekolah.hasMany(db.AbsenGuru, { foreignKey: 'id_absen_sekolah' });
+
+
+// --- ▼▼▼ PENAMBAHAN BARU: Relasi Absen Musyrif (Otomatis) ▼▼▼ ---
+db.AbsenMusyrif.belongsTo(db.Pegawai, { foreignKey: 'id_pegawai' });
+db.Pegawai.hasMany(db.AbsenMusyrif, { foreignKey: 'id_pegawai' });
+// --- ▲▲▲ AKHIR PENAMBAHAN BARU ---
+
 
 
 

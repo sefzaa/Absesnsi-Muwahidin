@@ -1,4 +1,3 @@
-// file: controllers/absenSekolah.js
 const db = require('../models');
 const { Op } = require('sequelize');
 const Santri = db.Santri;
@@ -6,7 +5,7 @@ const KelasSekolah = db.KelasSekolah;
 const JamPelajaran = db.JamPelajaran;
 const AbsenSekolah = db.AbsenSekolah;
 const Pegawai = db.Pegawai;
-// --- PERBAIKAN: Gunakan Sequelize (S besar) untuk static methods ---
+const AbsenGuru = db.AbsenGuru; // <-- 1. Impor model AbsenGuru
 const Sequelize = db.Sequelize;
 
 // Mendapatkan semua kelas sekolah
@@ -86,7 +85,7 @@ exports.getAbsensiDetail = async (req, res) => {
                 tanggal: tanggal,
                 id_jam_pelajaran: id_jam_pelajaran
             },
-            attributes: ['id_santri', 'status'] 
+            attributes: ['id_santri', 'status']
         });
         res.status(200).send(absensi);
     } catch (error) {
@@ -96,9 +95,11 @@ exports.getAbsensiDetail = async (req, res) => {
 
 // Menyimpan atau memperbarui data absensi (UPSERT)
 exports.saveAbsensi = async (req, res) => {
-    const { id_kelas_sekolah, id_pegawai, tanggal, absensi } = req.body;
+    // Di sini, id_pegawai diambil dari token, bukan dari body, untuk keamanan
+    const id_pegawai_guru = req.user.id_pegawai;
+    const { id_kelas_sekolah, tanggal, absensi } = req.body;
 
-    if (!id_kelas_sekolah || !id_pegawai || !tanggal || !absensi || absensi.length === 0) {
+    if (!id_kelas_sekolah || !id_pegawai_guru || !tanggal || !absensi || absensi.length === 0) {
         return res.status(400).send({ message: "Data tidak lengkap." });
     }
 
@@ -107,26 +108,52 @@ exports.saveAbsensi = async (req, res) => {
     try {
         const absensiData = absensi.map(item => ({
             id_kelas_sekolah,
-            id_pegawai,
+            id_pegawai: id_pegawai_guru, // Menggunakan id dari token
             tanggal,
             id_santri: item.id_santri,
             status: item.status,
             id_jam_pelajaran: item.id_jam_pelajaran
         }));
         
-        await AbsenSekolah.bulkCreate(absensiData, {
-            updateOnDuplicate: ["status", "id_pegawai"],
-            transaction: t
+        // Simpan absensi santri
+        const createdAbsenSekolah = await AbsenSekolah.bulkCreate(absensiData, {
+            updateOnDuplicate: ["status", "id_pegawai"], // Jika ada data, update statusnya
+            transaction: t,
+            returning: true
         });
 
+        // --- ▼▼▼ 2. LOGIKA BARU: REKAP OTOMATIS ABSENSI GURU ▼▼▼ ---
+        // Dapatkan semua ID jam pelajaran yang unik dari input absensi
+        const uniqueJamPelajaranIds = [...new Set(absensi.map(item => item.id_jam_pelajaran))];
+
+        // Buat promise untuk setiap jam pelajaran yang diabsen
+        const rekapGuruPromises = uniqueJamPelajaranIds.map(id_jam => {
+            return AbsenGuru.findOrCreate({
+                where: {
+                    id_pegawai: id_pegawai_guru,
+                    id_jam_pelajaran: id_jam,
+                    tanggal: tanggal
+                },
+                defaults: {
+                    status: 'Hadir',
+                    id_absen_sekolah: createdAbsenSekolah.find(a => a.id_jam_pelajaran === id_jam)?.id_absen_sekolah
+                },
+                transaction: t
+            });
+        });
+
+        // Jalankan semua promise rekap guru
+        await Promise.all(rekapGuruPromises);
+        // --- ▲▲▲ AKHIR LOGIKA BARU ---
+
         await t.commit();
-        res.status(201).send({ message: "Absensi berhasil disimpan." });
+        res.status(201).send({ message: "Absensi santri dan kehadiran guru berhasil direkam." });
     } catch (error) {
         await t.rollback();
+        console.error("Kesalahan saat menyimpan absensi:", error);
         res.status(500).send({ message: error.message || "Terjadi kesalahan saat menyimpan absensi." });
     }
 };
-
 
 // Mengambil semua data summary
 exports.getSummary = async (req, res) => {
@@ -136,11 +163,9 @@ exports.getSummary = async (req, res) => {
     }
 
     try {
-        // 1. Hitung total santri aktif per kelas sekolah
         const studentCounts = await Santri.findAll({
             attributes: [
                 'id_kelas_sekolah',
-                // --- PERBAIKAN DI SINI ---
                 [Sequelize.fn('COUNT', Sequelize.col('id_santri')), 'total_santri'],
             ],
             where: { 
@@ -152,13 +177,11 @@ exports.getSummary = async (req, res) => {
         });
         const totalSantriMap = new Map(studentCounts.map(i => [i.id_kelas_sekolah, i.total_santri]));
 
-        // 2. Ambil data agregat absensi pada tanggal tersebut
         const summaries = await AbsenSekolah.findAll({
             where: { tanggal },
             attributes: [
                 'id_kelas_sekolah',
                 'id_jam_pelajaran',
-                 // --- PERBAIKAN DI SINI ---
                 [Sequelize.fn('COUNT', Sequelize.literal("CASE WHEN status = 'Hadir' THEN 1 END")), 'hadir'],
                 [Sequelize.fn('COUNT', Sequelize.literal("CASE WHEN status = 'Sakit' THEN 1 END")), 'sakit'],
                 [Sequelize.fn('COUNT', Sequelize.literal("CASE WHEN status = 'Izin' THEN 1 END")), 'izin'],
@@ -166,7 +189,7 @@ exports.getSummary = async (req, res) => {
             ],
             include: [
                 { model: JamPelajaran, attributes: ['nama_jam'], required: true },
-                { model: Pegawai, attributes: ['nama'], as: 'Pegawai', required: true }
+                { model: Pegawai, attributes: ['nama'], required: true } // Dihapus alias 'Pegawai'
             ],
             group: [
                 'id_kelas_sekolah',
@@ -176,8 +199,7 @@ exports.getSummary = async (req, res) => {
             ],
             order: [[JamPelajaran, 'jam_mulai', 'ASC']]
         });
-
-        // 3. Strukturkan data untuk dikirim ke frontend
+        
         const result = {};
         summaries.forEach(summary => {
             const data = summary.toJSON();

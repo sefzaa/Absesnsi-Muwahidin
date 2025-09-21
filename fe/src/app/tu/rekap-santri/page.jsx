@@ -322,14 +322,14 @@ export default function RekapSantriPage() {
                                         <div>
                                             <div className="flex items-center gap-2">
                                                 <ProgressBar percentage={santri.performance.percentage} />
-                                                <span className="text-sm font-semibold">{santri.performance.percentage}%</span>
+                                                <span className="text-sm font-semibold text-gray-600">{santri.performance.percentage}%</span>
                                             </div>
                                         </div>
                                         <div className="border-t border-gray-100 pt-3 text-sm grid grid-cols-2 gap-2">
-                                            <div className="flex justify-between"><span>Hadir:</span> <span className="font-semibold text-green-600">{santri.performance.hadir}</span></div>
-                                            <div className="flex justify-between"><span>Sakit:</span> <span className="font-semibold text-yellow-600">{santri.performance.sakit}</span></div>
-                                            <div className="flex justify-between"><span>Izin:</span> <span className="font-semibold text-blue-600">{santri.performance.izin}</span></div>
-                                            <div className="flex justify-between"><span>Alpa:</span> <span className="font-semibold text-red-600">{santri.performance.alpa}</span></div>
+                                            <div className="flex justify-between text-gray-600"><span>Hadir:</span> <span className="font-semibold text-green-600">{santri.performance.hadir}</span></div>
+                                            <div className="flex justify-between text-gray-600"><span>Sakit:</span> <span className="font-semibold text-yellow-600">{santri.performance.sakit}</span></div>
+                                            <div className="flex justify-between text-gray-600"><span>Izin:</span> <span className="font-semibold text-blue-600">{santri.performance.izin}</span></div>
+                                            <div className="flex justify-between text-gray-600"><span>Alpa:</span> <span className="font-semibold text-red-600">{santri.performance.alpa}</span></div>
                                         </div>
                                     </div>
                                 ))}
