@@ -21,7 +21,7 @@ const Modal = ({ isOpen, onClose, title, children }) => {
         <Transition appear show={isOpen} as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={onClose}>
                 <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
-<div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
                 </Transition.Child>
                 <div className="fixed inset-0 overflow-y-auto">
                     <div className="flex min-h-full items-center justify-center p-4 text-center">
@@ -108,11 +108,14 @@ export default function SantriPage() {
             const response = await fetch(`${backendUrl}/api/santri`, {
                 headers: { 'x-access-token': token }
             });
-            if (!response.ok) throw new Error('Gagal mengambil data santri');
+            if (!response.ok) {
+                 setNotification({ isOpen: true, message: 'Gagal memuat data santri.', isError: true });
+                 return;
+            }
             const data = await response.json();
             setAllSantri(data);
         } catch (error) {
-            console.error(error);
+             setNotification({ isOpen: true, message: 'Tidak dapat terhubung ke server.', isError: true });
         } finally {
             setIsLoading(false);
         }
@@ -178,7 +181,7 @@ export default function SantriPage() {
 
     const closeNotificationModal = () => setNotification({ isOpen: false, message: '', isError: false });
 
-    // --- PERUBAHAN: Menambahkan notifikasi ---
+    // --- REVISI: Penanganan Error Tanpa Overlay ---
     const handleCreate = async (e) => {
         e.preventDefault();
         try {
@@ -193,28 +196,33 @@ export default function SantriPage() {
             });
             
             const result = await response.json();
+            
+            // Jika response tidak OK (misal: 400), tampilkan notifikasi error dan hentikan fungsi
             if (!response.ok) {
-                throw new Error(result.message || 'Gagal membuat data santri');
+                setNotification({ isOpen: true, message: result.message || 'Gagal membuat data santri', isError: true });
+                return;
             }
 
+            // Jika berhasil
             await fetchSantri();
             closeCreateModal();
             setNotification({ isOpen: true, message: result.message, isError: false });
+
         } catch (error) {
-            console.error("Error creating santri:", error);
-            setNotification({ isOpen: true, message: `Error: ${error.message}`, isError: true });
+            // Blok catch ini hanya untuk error jaringan atau kesalahan tak terduga lainnya
+            setNotification({ isOpen: true, message: 'Tidak dapat terhubung ke server.', isError: true });
         }
     };
     
-    // --- PERUBAHAN: Menambahkan notifikasi ---
+    // --- REVISI: Penanganan Error Tanpa Overlay ---
     const handleUpdate = async (e) => {
         e.preventDefault();
         try {
             const payload = {
                 ...editingSantri,
                 status_aktif: editingSantri.status_aktif === 'Aktif',
-                newPassword: newPassword,
-                newUsername: newUsernameForEdit,
+                newPassword: newPassword || undefined,
+                newUsername: newUsernameForEdit || undefined,
             };
 
             const response = await fetch(`${backendUrl}/api/santri/${editingSantri.id_santri}`, {
@@ -224,19 +232,24 @@ export default function SantriPage() {
             });
             
             const result = await response.json();
+
+            // Jika response tidak OK, tampilkan notifikasi error dan hentikan fungsi
             if (!response.ok) {
-                throw new Error(result.message || 'Gagal memperbarui data');
+                setNotification({ isOpen: true, message: result.message || 'Gagal memperbarui data', isError: true });
+                return;
             }
 
+            // Jika berhasil
             await fetchSantri();
             closeEditModal();
             setNotification({ isOpen: true, message: result.message, isError: false });
         } catch (error) {
-            console.error("Error updating santri:", error);
-            setNotification({ isOpen: true, message: `Error: ${error.message}`, isError: true });
+            // Blok catch ini hanya untuk error jaringan atau kesalahan tak terduga lainnya
+            setNotification({ isOpen: true, message: 'Tidak dapat terhubung ke server.', isError: true });
         }
     };
 
+    // --- REVISI: Penanganan Error Tanpa Overlay ---
     const executePromoteClasses = async () => {
         setIsConfirmPromoteModalOpen(false);
         try {
@@ -245,14 +258,15 @@ export default function SantriPage() {
                 headers: { 'x-access-token': token }
             });
             const result = await response.json();
+            
             if (!response.ok) {
-                throw new Error(result.message || 'Gagal memproses kenaikan kelas');
+                 setNotification({ isOpen: true, message: result.message || 'Gagal memproses kenaikan kelas', isError: true });
+                 return;
             }
             await fetchSantri();
             setNotification({ isOpen: true, message: result.message, isError: false });
         } catch (error) {
-            console.error("Error promoting classes:", error);
-            setNotification({ isOpen: true, message: `Error: ${error.message}`, isError: true });
+            setNotification({ isOpen: true, message: 'Tidak dapat terhubung ke server.', isError: true });
         }
     };
     
@@ -281,9 +295,9 @@ export default function SantriPage() {
                 ))}
             </div>
 
-            <div className="overflow-x-auto border border-gray-200 rounded-lg">
-                <table className="w-full min-w-[800px] text-sm text-left">
-                    <thead className="bg-gray-50 text-gray-500 uppercase">
+             <div className="overflow-x-auto">
+                <table className="w-full text-sm text-left">
+                    <thead className="hidden md:table-header-group bg-gray-50 text-gray-500 uppercase">
                         <tr>
                             <th className="p-4 font-medium w-12 text-center">NO</th>
                             <th className="p-4 font-medium whitespace-nowrap">NAMA</th>
@@ -293,18 +307,33 @@ export default function SantriPage() {
                             <th className="p-4 font-medium whitespace-nowrap">AKSI</th>
                         </tr>
                     </thead>
-                    <tbody className="divide-y">
+                    <tbody className="block md:table-row-group">
                         {isLoading ? (
-                            <tr><td colSpan="6" className="text-center p-10"><FiLoader className="animate-spin inline-block mr-2" /> Memuat data...</td></tr>
+                            <tr className="block md:table-row"><td colSpan="6" className="block md:table-cell text-center p-10"><FiLoader className="animate-spin inline-block mr-2" /> Memuat data...</td></tr>
                         ) : filteredSantri.length > 0 ? (
                             filteredSantri.map((santri, index) => (
-                                <tr key={santri.id_santri} className="hover:bg-gray-50">
-                                    <td className="p-4 text-center text-gray-500">{index + 1}</td>
-                                    <td className="p-4 font-semibold text-gray-800 whitespace-nowrap">{santri.nama}</td>
-                                    <td className="p-4 text-gray-600">{santri.Kela?.nama_kelas || '-'}</td>
-                                    <td className="p-4 text-gray-600">{santri.tahun_masuk || '-'}</td>
-                                    <td className="p-4"><StatusBadge status={santri.status_aktif} /></td>
-                                    <td className="p-4 flex items-center gap-2 whitespace-nowrap">
+                                <tr key={santri.id_santri} className="block mb-4 p-4 border rounded-lg shadow-sm md:table-row md:mb-0 md:p-0 md:border-b md:shadow-none hover:bg-gray-50">
+                                    <td className="flex justify-between items-center py-2 md:py-4 md:px-4 md:text-center md:table-cell text-gray-500">
+                                        <span className="font-semibold text-gray-600 md:hidden">NO:</span>
+                                        <span>{index + 1}</span>
+                                    </td>
+                                    <td className="flex justify-between items-center py-2 md:py-4 md:px-4 md:table-cell font-semibold text-gray-800 whitespace-nowrap">
+                                        <span className="font-semibold text-gray-600 md:hidden">NAMA:</span>
+                                        <span>{santri.nama}</span>
+                                    </td>
+                                    <td className="flex justify-between items-center py-2 md:py-4 md:px-4 md:table-cell text-gray-600">
+                                        <span className="font-semibold text-gray-600 md:hidden">KELAS:</span>
+                                        <span>{santri.Kela?.nama_kelas || '-'}</span>
+                                    </td>
+                                    <td className="flex justify-between items-center py-2 md:py-4 md:px-4 md:table-cell text-gray-600">
+                                        <span className="font-semibold text-gray-600 md:hidden">TAHUN MASUK:</span>
+                                        <span>{santri.tahun_masuk || '-'}</span>
+                                    </td>
+                                    <td className="flex justify-between items-center py-2 md:py-4 md:px-4 md:table-cell">
+                                        <span className="font-semibold text-gray-600 md:hidden">STATUS:</span>
+                                        <StatusBadge status={santri.status_aktif} />
+                                    </td>
+                                    <td className="flex justify-end items-center py-3 md:py-4 md:px-4 md:table-cell gap-2 whitespace-nowrap mt-2 pt-3 border-t md:border-none md:mt-0 md:pt-0">
                                         <button onClick={() => openViewModal(santri)} className="inline-flex items-center gap-2 px-3 py-1.5 text-sm font-medium rounded-lg bg-gray-100 text-gray-700 hover:bg-gray-200 transition-colors">
                                             <FiEye size={14} /><span>View</span>
                                         </button>
@@ -315,12 +344,11 @@ export default function SantriPage() {
                                 </tr>
                             ))
                         ) : (
-                            <tr><td colSpan="6" className="text-center p-10 text-gray-500">Tidak ada data santri yang cocok.</td></tr>
+                            <tr className="block md:table-row"><td colSpan="6" className="block md:table-cell text-center p-10 text-gray-500">Tidak ada data santri yang cocok.</td></tr>
                         )}
                     </tbody>
                 </table>
             </div>
-
 
             {/* --- MODAL CREATE --- */}
             {isCreateModalOpen && (
@@ -354,7 +382,6 @@ export default function SantriPage() {
                                     <textarea required value={newSantriData.alamat} onChange={(e) => setNewSantriData({...newSantriData, alamat: e.target.value})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
                                 </div>
                                 <div>
-                                    {/* --- PERBAIKAN: Input tahun masuk divalidasi --- */}
                                     <label className="block text-sm font-medium text-gray-700">Tahun Masuk</label>
                                     <input 
                                         type="number"
@@ -407,13 +434,12 @@ export default function SantriPage() {
                                     <textarea required value={newSantriData.Ortu.alamat} onChange={(e) => setNewSantriData({...newSantriData, Ortu: {...newSantriData.Ortu, alamat: e.target.value}})} className="mt-1 block w-full px-3 py-2 border border-gray-300 rounded-lg text-gray-900 focus:outline-none focus:ring-2 focus:ring-blue-500" rows="2"></textarea>
                                 </div>
                                 
-                                {/* --- PERUBAHAN: Validasi Wajib Isi Akun Wali --- */}
                                 <div className="md:col-span-2 border-t pt-4 mt-2">
                                     <div className="flex items-center gap-2 mb-2">
                                        <FiUserPlus className="text-gray-600" />
                                        <h5 className="text-md font-semibold text-gray-700">Buat Akun Wali Santri</h5>
                                     </div>
-                                    <p className="text-xs text-gray-500 mb-3">Jika diisi, username dan password akan digunakan untuk membuat akun baru. Keduanya wajib diisi bersamaan.</p>
+                                    <p className="text-xs text-gray-500 mb-3">Jika diisi, username dan password akan digunakan untuk membuat akun baru. Keduanya wajib diisi bersamaan. Username tidak boleh mengandung spasi dan password minimal 6 karakter.</p>
                                 </div>
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700">Username</label>
@@ -524,17 +550,17 @@ export default function SantriPage() {
                                             <div className="flex items-center gap-2 mb-2">
                                                <FiKey className="text-gray-600" />
                                                <h5 className="text-md font-semibold text-gray-700">
-                                                   {editingSantri.Ortu.User ? 'Ubah Akun Wali Santri' : 'Buat Akun Wali Santri'}
+                                                  {editingSantri.Ortu.User ? 'Ubah Akun Wali Santri' : 'Buat Akun Wali Santri'}
                                                </h5>
                                             </div>
-                                            { !editingSantri.Ortu.User && <p className="text-xs text-gray-500 mb-3">Wali santri ini belum memiliki akun. Isi form di bawah untuk membuat akun baru.</p> }
+                                            { !editingSantri.Ortu.User && <p className="text-xs text-gray-500 mb-3">Wali santri ini belum memiliki akun. Isi form di bawah untuk membuat akun baru. Username tidak boleh mengandung spasi dan password minimal 6 karakter.</p> }
                                         </div>
 
                                         {editingSantri.Ortu.User ? (
                                             <>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">Username</label>
-                                                    <input type="text" value={editingSantri.Ortu.User.username} readOnly className="mt-1 block w-full px-3 py-2 border-gray-200 rounded-lg text-gray-700 bg-gray-100 focus:outline-none" />
+                                                    <input type="text" value={editingSantri.Ortu.User.username} readOnly className="mt-1 block w-full px-3 py-2 border-gray-200 rounded-lg text-gray-700 bg-gray-100 cursor-not-allowed" />
                                                 </div>
                                                 <div>
                                                     <label className="block text-sm font-medium text-gray-700">Reset Password</label>
@@ -627,7 +653,7 @@ export default function SantriPage() {
                     <h3 className="mb-2 text-lg font-normal text-gray-600">
                         Apakah Anda yakin ingin menaikkan kelas semua santri aktif?
                     </h3>
-                    <p className="text-sm text-gray-500 mb-6">Tindakan ini tidak dapat dibatalkan.</p>
+                    <p className="text-sm text-gray-500 mb-6">Tindakan ini akan menaikkan kelas semua santri yang berstatus aktif sesuai jenis asrama Anda. Santri kelas 6 akan menjadi alumni. Tindakan ini tidak dapat dibatalkan.</p>
                     <div className="flex justify-center gap-4">
                         <button onClick={() => setIsConfirmPromoteModalOpen(false)} className="px-6 py-2 bg-gray-100 text-gray-800 rounded-lg hover:bg-gray-200">
                             Batal
@@ -655,4 +681,3 @@ export default function SantriPage() {
         </div>
     );
 }
-

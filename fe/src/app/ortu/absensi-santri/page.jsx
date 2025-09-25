@@ -19,15 +19,25 @@ const getStatusClasses = (status) => {
     }
 };
 
-const PerformanceCard = ({ title, percentage, colorClass }) => (
-    <div className="bg-white p-4 rounded-xl shadow-sm border">
-        <p className="text-sm font-medium text-gray-500">{title}</p>
-        <p className={`text-3xl font-bold ${colorClass}`}>{percentage.toFixed(1)}%</p>
+// REVISI: PerformanceCard sekarang menampilkan rekap HISA
+const PerformanceCard = ({ title, stats, colorClass }) => (
+    <div className="bg-white p-4 rounded-xl shadow-sm border flex flex-col justify-between">
+        <div>
+            <p className="text-sm font-medium text-gray-500">{title}</p>
+            <p className={`text-3xl font-bold ${colorClass}`}>{stats.percentage.toFixed(1)}%</p>
+        </div>
+        <div className="mt-2 pt-2 border-t">
+            <p className="text-xs text-center space-x-2">
+                <span className="font-medium text-green-600">H: {stats.H}</span>
+                <span className="font-medium text-blue-600">I: {stats.I}</span>
+                <span className="font-medium text-yellow-600">S: {stats.S}</span>
+                <span className="font-medium text-red-600">A: {stats.A}</span>
+            </p>
+        </div>
     </div>
 );
 
-// [PERUBAHAN] Komponen AbsenTable sekarang responsif
-const AbsenTable = ({ data, type, isLoading }) => {
+const AbsenList = ({ data, type, isLoading }) => {
     if (isLoading) return null;
     if (data.length === 0) {
         return <p className="text-center text-gray-500 py-8">Tidak ada data absensi pada periode ini.</p>;
@@ -36,64 +46,34 @@ const AbsenTable = ({ data, type, isLoading }) => {
     const isAsrama = type === 'asrama';
 
     return (
-        <>
-            {/* Tampilan Tabel untuk Desktop (md ke atas) */}
-            <table className="min-w-full divide-y divide-gray-200 hidden md:table">
-                <thead className="bg-gray-50">
-                    <tr>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tanggal</th>
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">{isAsrama ? 'Nama Kegiatan' : 'Jam Pelajaran'}</th>
-                        {!isAsrama && <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Waktu</th>}
-                        <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                    </tr>
-                </thead>
-                <tbody className="bg-white divide-y divide-gray-200">
-                    {data.map((item) => (
-                        <tr key={isAsrama ? item.id_absen_kegiatan : item.id_absen_sekolah}>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{moment(item.tanggal).format('dddd, DD MMMM YYYY')}</td>
-                            <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{isAsrama ? item.nama_kegiatan : item.JamPelajaran.nama_jam}</td>
-                            {!isAsrama && <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">{item.JamPelajaran.jam_mulai.substring(0, 5)} - {item.JamPelajaran.jam_selesai.substring(0, 5)}</td>}
-                            <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                                <span className={`px-2.5 py-0.5 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(item.status)}`}>
-                                    {item.status}
-                                </span>
-                            </td>
-                        </tr>
-                    ))}
-                </tbody>
-            </table>
-
-            {/* Tampilan Kartu untuk Mobile (di bawah md) */}
-            <div className="grid grid-cols-1 gap-4 md:hidden">
-                {data.map((item) => (
-                    <div key={isAsrama ? item.id_absen_kegiatan : item.id_absen_sekolah} className="bg-white p-4 rounded-lg shadow-sm border">
-                        <div className="flex justify-between items-start">
-                            <div className="flex-1">
-                                <p className="font-bold text-gray-800">
-                                    {isAsrama ? item.nama_kegiatan : item.JamPelajaran.nama_jam}
+        <div className="space-y-3">
+            {data.map((item) => (
+                <div key={isAsrama ? item.id_absen_kegiatan : item.id_absen_sekolah} className="bg-white p-4 rounded-lg shadow-sm border">
+                    <div className="flex justify-between items-start gap-3">
+                        <div className="flex-1 min-w-0">
+                            <p className="text-sm text-gray-500">
+                                {moment(item.tanggal).format('dddd, DD MMMM YYYY')}
+                            </p>
+                            <p className="font-bold text-gray-800 break-words mt-1">
+                                {isAsrama ? item.nama_kegiatan : item.JamPelajaran.nama_jam}
+                            </p>
+                            {!isAsrama && (
+                                <p className="text-sm text-gray-500">
+                                    Pukul {item.JamPelajaran.jam_mulai.substring(0, 5)} - {item.JamPelajaran.jam_selesai.substring(0, 5)}
                                 </p>
-                                <p className="text-sm text-gray-500 mt-1">
-                                    {moment(item.tanggal).format('dddd, DD MMM YYYY')}
-                                </p>
-                                {!isAsrama && (
-                                    <p className="text-sm text-gray-500">
-                                        Pukul {item.JamPelajaran.jam_mulai.substring(0, 5)} - {item.JamPelajaran.jam_selesai.substring(0, 5)}
-                                    </p>
-                                )}
-                            </div>
-                            <div className="ml-4">
-                                <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(item.status)}`}>
-                                    {item.status}
-                                </span>
-                            </div>
+                            )}
+                        </div>
+                        <div className="flex-shrink-0 ml-4">
+                            <span className={`px-3 py-1 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusClasses(item.status)}`}>
+                                {item.status}
+                            </span>
                         </div>
                     </div>
-                ))}
-            </div>
-        </>
+                </div>
+            ))}
+        </div>
     );
 };
-
 
 export default function AbsensiSantriPage() {
     const { token } = useAuth();
@@ -109,7 +89,7 @@ export default function AbsensiSantriPage() {
 
     const [isLoading, setIsLoading] = useState(true);
     const [error, setError] = useState('');
-    const [activeTab, setActiveTab] = useState('asrama'); // 'asrama' or 'sekolah'
+    const [activeTab, setActiveTab] = useState('asrama');
 
     useEffect(() => {
         if (!token) return;
@@ -126,10 +106,7 @@ export default function AbsensiSantriPage() {
     }, [token]);
 
     useEffect(() => {
-        if (!selectedAnak || !token) {
-            setIsLoading(false);
-            return;
-        }
+        if (!selectedAnak || !token) { setIsLoading(false); return; }
         
         const fetchAbsensi = async () => {
             setIsLoading(true);
@@ -149,20 +126,25 @@ export default function AbsensiSantriPage() {
     }, [selectedAnak, filterBulan, filterTahun, token]);
     
     const performanceStats = useMemo(() => {
-        const calcPerf = (data) => {
-            if (!data || data.length === 0) return { total: 0, hadir: 0, percentage: 0 };
+        const calcStats = (data) => {
+            if (!data || data.length === 0) return { total: 0, H: 0, I: 0, S: 0, A: 0, percentage: 0 };
             const total = data.length;
             const hadir = data.filter(d => d.status === 'Hadir').length;
-            return { total, hadir, percentage: (hadir / total) * 100 };
+            const izin = data.filter(d => d.status === 'Izin').length;
+            const sakit = data.filter(d => d.status === 'Sakit').length;
+            const alpa = data.filter(d => d.status === 'Alpa').length;
+            return { total, H: hadir, I: izin, S: sakit, A: alpa, percentage: (hadir / total) * 100 };
         };
-        return { asrama: calcPerf(absensiData.absensiKegiatan), sekolah: calcPerf(absensiData.absensiSekolah) };
+        return { asrama: calcStats(absensiData.absensiKegiatan), sekolah: calcStats(absensiData.absensiSekolah) };
     }, [absensiData]);
 
     const handleCetak = () => {
-        const santriName = anakList.find(a => a.id_santri === selectedAnak)?.nama || 'Santri';
+        const santriName = anakList.find(a => a.id_santri == selectedAnak)?.nama || 'Santri';
         const period = moment(`${filterTahun}-${filterBulan}-01`).format('MMMM YYYY');
         
         const dataToPrint = activeTab === 'asrama' ? absensiData.absensiKegiatan : absensiData.absensiSekolah;
+        const performance = activeTab === 'asrama' ? performanceStats.asrama : performanceStats.sekolah;
+        
         const tableHeaders = activeTab === 'asrama' 
             ? `<th>Tanggal</th><th>Nama Kegiatan</th><th>Status</th>`
             : `<th>Tanggal</th><th>Jam Pelajaran</th><th>Waktu</th><th>Status</th>`;
@@ -172,35 +154,45 @@ export default function AbsensiSantriPage() {
             : `<tr><td>${moment(item.tanggal).format('DD MMM YYYY')}</td><td>${item.JamPelajaran.nama_jam}</td><td>${item.JamPelajaran.jam_mulai.substring(0,5)} - ${item.JamPelajaran.jam_selesai.substring(0,5)}</td><td>${item.status}</td></tr>`
         ).join('');
         
-        const performance = activeTab === 'asrama' ? performanceStats.asrama : performanceStats.sekolah;
-
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
             <html>
-                <head><title>Rekap Absensi ${santriName}</title>
+                <head>
+                    <title>Rekap Absensi ${santriName}</title>
                     <style>
-                        body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-                        th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; }
-                        h1, h2 { text-align: center; } @media print { .no-print { display: none; } }
+                        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 10px; }
+                        .container { width: 95%; margin: auto; }
+                        table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+                        th, td { border: 1px solid #ccc; padding: 6px; text-align: left; }
+                        th { background-color: #f2f2f2; font-weight: 600; }
+                        h1, h2 { text-align: center; margin: 5px 0; }
+                        h1 { font-size: 16px; } h2 { font-size: 14px; font-weight: normal; }
+                        .rekap-summary { margin-top: 20px; padding: 10px; border: 1px solid #eee; border-radius: 5px; background-color: #f9f9f9; }
+                        .rekap-summary p { margin: 4px 0; }
                     </style>
                 </head>
                 <body>
-                    <h1>Rekap Absensi ${activeTab === 'asrama' ? 'Asrama' : 'Sekolah'}</h1>
-                    <h2>${santriName} - Periode ${period}</h2>
-                    <p><strong>Total Kehadiran:</strong> ${performance.hadir} dari ${performance.total} (${performance.percentage.toFixed(1)}%)</p>
-                    <table><thead><tr>${tableHeaders}</tr></thead><tbody>${tableRows}</tbody></table>
-                    <script>window.onload = function() { window.print(); window.close(); }</script>
+                    <div class="container">
+                        <h1>Rekap Absensi ${activeTab === 'asrama' ? 'Asrama' : 'Sekolah'}</h1>
+                        <h2>${santriName} - Periode ${period}</h2>
+                        <div class="rekap-summary">
+                            <p><strong>Total Kegiatan/Pelajaran:</strong> ${performance.total}</p>
+                            <p><strong>Hadir:</strong> ${performance.H}</p>
+                            <p><strong>Izin:</strong> ${performance.I}</p>
+                            <p><strong>Sakit:</strong> ${performance.S}</p>
+                            <p><strong>Alpa:</strong> ${performance.A}</p>
+                            <p><strong>Performa Kehadiran:</strong> ${performance.percentage.toFixed(1)}%</p>
+                        </div>
+                        <table><thead><tr>${tableHeaders}</tr></thead><tbody>${tableRows}</tbody></table>
+                        <script>window.onload = function() { window.print(); window.close(); }</script>
+                    </div>
                 </body>
             </html>
         `);
         printWindow.document.close();
     };
 
-    const generateYears = () => {
-        const years = [];
-        for (let i = currentYear; i >= currentYear - 5; i--) { years.push(i); }
-        return years;
-    };
+    const generateYears = () => Array.from({length: 6}, (_, i) => currentYear - i);
 
     return (
         <div className="space-y-6">
@@ -210,7 +202,7 @@ export default function AbsensiSantriPage() {
                         <label className="block text-sm font-medium text-gray-700 mb-1">Pilih Anak</label>
                         <select
                             value={selectedAnak}
-                            onChange={(e) => setSelectedAnak(Number(e.target.value))}
+                            onChange={(e) => setSelectedAnak(e.target.value)}
                             className="block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-indigo-500 focus:border-indigo-500 sm:text-sm rounded-md text-gray-700"
                             disabled={anakList.length === 0}
                         >
@@ -243,13 +235,12 @@ export default function AbsensiSantriPage() {
             {!isLoading && !error && (
                 <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <PerformanceCard title="Performa Kehadiran Asrama" percentage={performanceStats.asrama.percentage} colorClass="text-blue-600" />
-                        <PerformanceCard title="Performa Kehadiran Sekolah" percentage={performanceStats.sekolah.percentage} colorClass="text-green-600" />
+                        <PerformanceCard title="Performa Kehadiran Asrama" stats={performanceStats.asrama} colorClass="text-blue-600" />
+                        <PerformanceCard title="Performa Kehadiran Sekolah" stats={performanceStats.sekolah} colorClass="text-green-600" />
                     </div>
                     
                     <div className="bg-white rounded-xl shadow-sm border">
                         <div className="border-b border-gray-200">
-                            {/* [PERUBAHAN] Navigasi Tab dibuat memenuhi kontainer */}
                             <nav className="flex" aria-label="Tabs">
                                 <button onClick={() => setActiveTab('asrama')} className={`flex-1 text-center whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors duration-200 ${activeTab === 'asrama' ? 'border-indigo-500 text-indigo-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-200'}`}>
                                     Absensi Asrama
@@ -260,9 +251,9 @@ export default function AbsensiSantriPage() {
                             </nav>
                         </div>
                         
-                        <div>
-                           {activeTab === 'asrama' && <AbsenTable data={absensiData.absensiKegiatan} type="asrama" isLoading={isLoading} />}
-                           {activeTab === 'sekolah' && <AbsenTable data={absensiData.absensiSekolah} type="sekolah" isLoading={isLoading} />}
+                        <div className="p-4">
+                           {activeTab === 'asrama' && <AbsenList data={absensiData.absensiKegiatan} type="asrama" isLoading={isLoading} />}
+                           {activeTab === 'sekolah' && <AbsenList data={absensiData.absensiSekolah} type="sekolah" isLoading={isLoading} />}
                         </div>
                     </div>
                 </>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, Fragment, useMemo } from 'react';
 import { Dialog, Transition } from '@headlessui/react';
-import { useAuth } from '../../AuthContext'; // Sesuaikan path jika berbeda
+import { useAuth } from '../../AuthContext';
 
 // --- Helper & Komponen Ikon ---
 const PlusIcon = () => <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>;
@@ -18,7 +18,6 @@ const SortDownIcon = ({ className }) => <svg className={className} xmlns="http:/
 
 const backendUrl = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
 
-// --- Komponen Modal ---
 const Modal = ({ isOpen, onClose, children, size = 'md' }) => {
     const sizeClasses = { sm: 'max-w-sm', md: 'max-w-md', lg: 'max-w-lg', xl: 'max-w-xl', '2xl': 'max-w-2xl' };
     if (!isOpen) return null;
@@ -40,7 +39,6 @@ const Modal = ({ isOpen, onClose, children, size = 'md' }) => {
     );
 };
 
-// --- Komponen Notifikasi Modal ---
 const NotificationModal = ({ isOpen, type, message, onClose }) => (
     <Modal isOpen={isOpen} onClose={onClose} size="sm">
         <div className="flex flex-col items-center text-center p-4">
@@ -55,10 +53,8 @@ const NotificationModal = ({ isOpen, type, message, onClose }) => (
     </Modal>
 );
 
-// --- Kumpulan Kelas CSS untuk Form Manual ---
 const baseInputClasses = "mt-1 block w-full text-gray-900 bg-white border border-gray-300 rounded-md shadow-sm px-3 py-2 text-sm focus:outline-none focus:ring-indigo-500 focus:border-indigo-500";
 const selectClasses = `${baseInputClasses} appearance-none bg-no-repeat bg-right pr-8 bg-[url('data:image/svg+xml;charset=utf-8,<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 20 20"><path stroke="%236b7280" stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="m6 8 4 4 4-4"/></svg>')]`;
-
 
 export default function PegawaiPage() {
     const { token } = useAuth();
@@ -83,12 +79,7 @@ export default function PegawaiPage() {
     const [formData, setFormData] = useState(initialFormState);
 
     const fetchData = async () => {
-        if (!token) {
-            setIsLoading(false);
-            return;
-        }
-        
-        // Atur isLoading menjadi true setiap kali fetchData dipanggil
+        if (!token) { setIsLoading(false); return; }
         setIsLoading(true);
         try {
             const [pegawaiRes, jabatanRes] = await Promise.all([
@@ -96,52 +87,41 @@ export default function PegawaiPage() {
                 fetch(`${backendUrl}/api/jabatan`, { headers: { 'x-access-token': token } })
             ]);
             if (!pegawaiRes.ok || !jabatanRes.ok) {
-                throw new Error('Gagal mengambil data dari server.');
+                const errorData = await (pegawaiRes.ok ? jabatanRes.json() : pegawaiRes.json());
+                throw new Error(errorData.message || 'Gagal mengambil data dari server.');
             }
             const pegawai = await pegawaiRes.json();
             const jabatan = await jabatanRes.json();
             setPegawaiData(pegawai);
             setJabatanList(jabatan);
         } catch (error) {
-            console.error("Fetch Error:", error);
             setNotification({ isOpen: true, type: 'error', message: 'Gagal memuat data. Periksa koneksi atau server backend.' });
         } finally {
             setIsLoading(false);
         }
     };
 
-    useEffect(() => {
-        fetchData();
-    }, [token]);
+    useEffect(() => { fetchData(); }, [token]);
     
     const processedData = useMemo(() => {
         let filterableItems = [...pegawaiData];
-
         if (filterableItems.length > 0) {
-            // 1. Proses Filtering
             filterableItems = filterableItems
-                .filter(pegawai => {
-                    if (selectedJabatan === 'all') return true;
-                    return pegawai.id_jabatan == selectedJabatan;
-                })
+                .filter(pegawai => selectedJabatan === 'all' || pegawai.id_jabatan == selectedJabatan)
                 .filter(pegawai => {
                     const term = searchTerm.toLowerCase();
                     return (
                         pegawai.nama.toLowerCase().includes(term) ||
-                        pegawai.nip.toLowerCase().includes(term) ||
-                        pegawai.username.toLowerCase().includes(term)
+                        (pegawai.nip && pegawai.nip.toLowerCase().includes(term)) ||
+                        (pegawai.username && pegawai.username.toLowerCase().includes(term))
                     );
                 });
-
-            // 2. Proses Sorting
             if (sortConfig.key) {
                 filterableItems.sort((a, b) => {
-                    if (a[sortConfig.key] < b[sortConfig.key]) {
-                        return sortConfig.direction === 'ascending' ? -1 : 1;
-                    }
-                    if (a[sortConfig.key] > b[sortConfig.key]) {
-                        return sortConfig.direction === 'ascending' ? 1 : -1;
-                    }
+                    const valA = a[sortConfig.key] || '';
+                    const valB = b[sortConfig.key] || '';
+                    if (valA < valB) return sortConfig.direction === 'ascending' ? -1 : 1;
+                    if (valA > valB) return sortConfig.direction === 'ascending' ? 1 : -1;
                     return 0;
                 });
             }
@@ -151,16 +131,12 @@ export default function PegawaiPage() {
 
     const requestSort = (key) => {
         let direction = 'ascending';
-        if (sortConfig.key === key && sortConfig.direction === 'ascending') {
-            direction = 'descending';
-        }
+        if (sortConfig.key === key && sortConfig.direction === 'ascending') direction = 'descending';
         setSortConfig({ key, direction });
     };
 
     const getSortIcon = (key) => {
-        if (sortConfig.key !== key) {
-            return <SortIcon className="h-4 w-4 text-gray-400" />;
-        }
+        if (sortConfig.key !== key) return <SortIcon className="h-4 w-4 text-gray-400" />;
         return sortConfig.direction === 'ascending' ? <SortUpIcon className="h-4 w-4 text-indigo-600" /> : <SortDownIcon className="h-4 w-4 text-indigo-600" />;
     };
 
@@ -192,9 +168,8 @@ export default function PegawaiPage() {
         const url = isEditing ? `${backendUrl}/api/pegawai/${selectedPegawai.id_pegawai}` : `${backendUrl}/api/pegawai`;
         const method = isEditing ? 'PUT' : 'POST';
         const submissionData = { ...formData };
-        if (!submissionData.nip || submissionData.nip.trim() === '') {
-            submissionData.nip = '-';
-        }
+        if (!submissionData.nip || submissionData.nip.trim() === '') submissionData.nip = '-';
+        
         try {
             const response = await fetch(url, {
                 method,
@@ -202,15 +177,19 @@ export default function PegawaiPage() {
                 body: JSON.stringify(submissionData)
             });
             const result = await response.json();
+            
             if (!response.ok) {
-                throw new Error(result.message || `Gagal ${isEditing ? 'memperbarui' : 'menyimpan'} data.`);
+                // Langsung tampilkan notifikasi error tanpa throw
+                setNotification({ isOpen: true, type: 'error', message: result.message || `Gagal ${isEditing ? 'memperbarui' : 'menyimpan'} data.` });
+                return; // Hentikan eksekusi
             }
-            setNotification({ isOpen: true, type: 'success', message: `Data pegawai berhasil ${isEditing ? 'diperbarui' : 'disimpan'}.` });
+            
+            setNotification({ isOpen: true, type: 'success', message: result.message || `Data pegawai berhasil ${isEditing ? 'diperbarui' : 'disimpan'}.` });
             handleCloseModal();
             fetchData();
         } catch (error) {
-            console.error("Submit Error:", error);
-            setNotification({ isOpen: true, type: 'error', message: error.message });
+            // Catch ini hanya untuk network error, bukan validasi server
+            setNotification({ isOpen: true, type: 'error', message: 'Tidak dapat terhubung ke server. Mohon coba lagi.' });
         }
     };
 
@@ -226,12 +205,17 @@ export default function PegawaiPage() {
                 method: 'DELETE',
                 headers: { 'x-access-token': token }
             });
-            if (!response.ok) throw new Error('Gagal menghapus data.');
+            
+            const result = await response.json();
+            if (!response.ok) {
+                setNotification({ isOpen: true, type: 'error', message: result.message || 'Gagal menghapus data.' });
+                return;
+            }
+            
             setNotification({ isOpen: true, type: 'success', message: 'Data pegawai berhasil dihapus.' });
             fetchData();
         } catch (error) {
-            console.error("Delete Error:", error);
-            setNotification({ isOpen: true, type: 'error', message: error.message });
+            setNotification({ isOpen: true, type: 'error', message: 'Tidak dapat terhubung ke server.' });
         } finally {
             setIsDeleteModalOpen(false);
             setSelectedPegawai(null);
@@ -269,9 +253,8 @@ export default function PegawaiPage() {
                          </div>
                          <div>
                              <label className="block text-sm font-medium text-gray-700">Jenis Kelamin</label>
-                             <select name="jenis_kelamin" value={formData.jenis_kelamin} onChange={handleFormChange} className={selectClasses}>   required 
-
-                                <option value="" disabled>Pilih Jenis Kelamin</option>
+                             <select name="jenis_kelamin" value={formData.jenis_kelamin} onChange={handleFormChange} className={selectClasses} required>
+                                 <option value="" disabled>Pilih Jenis Kelamin</option>
                                  <option value="Putra">Putra</option>
                                  <option value="Putri">Putri</option>
                              </select>
@@ -294,34 +277,34 @@ export default function PegawaiPage() {
                          </div>
                      </div>
                      <div className="space-y-6 pt-6 border-t border-gray-200">
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Jabatan</label>
-                                <select name="id_jabatan" value={formData.id_jabatan} onChange={handleFormChange} className={selectClasses} required>
-                                    <option value="">Pilih Jabatan</option>
-                                    {jabatanList.map(j => <option key={j.id_jabatan} value={j.id_jabatan}>{j.nama_jabatan}</option>)}
-                                    <option value="lainnya">Lainnya (Jabatan Baru)</option>
-                                </select>
-                            </div>
-                            {formData.id_jabatan === 'lainnya' && ( <div><label className="block text-sm font-medium text-gray-700">Nama Jabatan Baru</label><input type="text" name="jabatan_baru" value={formData.jabatan_baru} onChange={handleFormChange} className={baseInputClasses} required /></div>)}
+                         <div className="grid grid-cols-1 md:grid-cols-2 gap-x-6 gap-y-4">
                              <div>
-                                <label className="block text-sm font-medium text-gray-700">Tahun Masuk</label>
-                                <input type="number" name="tahun_masuk" value={formData.tahun_masuk} onChange={handleFormChange} className={baseInputClasses} />
+                                 <label className="block text-sm font-medium text-gray-700">Jabatan</label>
+                                 <select name="id_jabatan" value={formData.id_jabatan} onChange={handleFormChange} className={selectClasses} required>
+                                     <option value="">Pilih Jabatan</option>
+                                     {jabatanList.map(j => <option key={j.id_jabatan} value={j.id_jabatan}>{j.nama_jabatan}</option>)}
+                                     <option value="lainnya">Lainnya (Jabatan Baru)</option>
+                                 </select>
+                             </div>
+                             {formData.id_jabatan === 'lainnya' && ( <div><label className="block text-sm font-medium text-gray-700">Nama Jabatan Baru</label><input type="text" name="jabatan_baru" value={formData.jabatan_baru} onChange={handleFormChange} className={baseInputClasses} required /></div>)}
+                              <div>
+                                 <label className="block text-sm font-medium text-gray-700">Tahun Masuk</label>
+                                 <input type="number" name="tahun_masuk" value={formData.tahun_masuk} onChange={handleFormChange} className={baseInputClasses} />
+                             </div>
+                             <div>
+                                 <label className="block text-sm font-medium text-gray-700">Username</label>
+                                 <input type="text" name="username" value={formData.username} onChange={handleFormChange} className={`${baseInputClasses} ${modalMode === 'edit' ? 'bg-gray-100 cursor-not-allowed' : ''}`} required disabled={modalMode === 'edit'} autoComplete="off" />                             
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">Username</label>
-                                <input type="text" name="username" value={formData.username} onChange={handleFormChange} className={`${baseInputClasses} ${modalMode === 'edit' ? 'bg-gray-100 cursor-not-allowed' : ''}`} required disabled={modalMode === 'edit'}/>
+                             <div>
+                                 <label className="block text-sm font-medium text-gray-700">{modalMode === 'edit' ? 'Password Baru (Opsional)' : 'Password'}</label>
+                                 <input type="password" name="password" value={formData.password} onChange={handleFormChange} className={baseInputClasses} required={modalMode === 'add'} placeholder={modalMode === 'edit' ? 'Kosongkan jika tidak diubah' : ''} autoComplete="new-password" />                             
                             </div>
-                            <div>
-                                <label className="block text-sm font-medium text-gray-700">{modalMode === 'edit' ? 'Password Baru (Opsional)' : 'Password'}</label>
-                                <input type="password" name="password" value={formData.password} onChange={handleFormChange} className={baseInputClasses} required={modalMode === 'add'} placeholder={modalMode === 'edit' ? 'Kosongkan jika tidak diubah' : ''} />
-                            </div>
-                        </div>
+                         </div>
                      </div>
-                    <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
-                        <button type="button" onClick={handleCloseModal} className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Batal</button>
-                        <button type="submit" className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">Simpan Perubahan</button>
-                    </div>
+                     <div className="flex justify-end gap-4 pt-6 border-t border-gray-200">
+                         <button type="button" onClick={handleCloseModal} className="rounded-md bg-white px-4 py-2 text-sm font-semibold text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 hover:bg-gray-50">Batal</button>
+                         <button type="submit" className="rounded-md bg-indigo-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-indigo-700">Simpan Perubahan</button>
+                     </div>
                 </form>
             </Modal>
 

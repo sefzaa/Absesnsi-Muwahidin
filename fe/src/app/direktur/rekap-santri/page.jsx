@@ -40,6 +40,16 @@ const DetailAbsenModal = ({ isOpen, closeModal, santriId, bulan, tahun, viewType
     const title = viewType === 'asrama' ? 'Absensi Asrama' : 'Absensi Sekolah';
     const dataToDisplay = detailData ? (viewType === 'asrama' ? detailData.absensiKegiatan : detailData.absensiSekolah) : [];
 
+    const getStatusBadgeColor = (status) => {
+        switch(status) {
+            case 'Hadir': return 'bg-green-100 text-green-800';
+            case 'Izin': return 'bg-blue-100 text-blue-800';
+            case 'Sakit': return 'bg-yellow-100 text-yellow-800';
+            case 'Alpa': return 'bg-red-100 text-red-800';
+            default: return 'bg-gray-100 text-gray-800';
+        }
+    };
+
     return (
         <Transition appear show={isOpen} as={Fragment}>
             <Dialog as="div" className="relative z-50" onClose={closeModal}>
@@ -54,9 +64,7 @@ const DetailAbsenModal = ({ isOpen, closeModal, santriId, bulan, tahun, viewType
                                     <div className="flex justify-center items-center h-48"><FiLoader className="animate-spin text-4xl text-indigo-600" /></div>
                                 ) : detailData ? (
                                     <>
-                                        <Dialog.Title as="h3" className="text-xl font-bold leading-6 text-gray-900">
-                                            Detail {title}
-                                        </Dialog.Title>
+                                        <Dialog.Title as="h3" className="text-xl font-bold leading-6 text-gray-900">Detail {title}</Dialog.Title>
                                         <div className="mt-2">
                                             <p className="text-sm text-gray-500">
                                                 Santri: <strong>{detailData.santri.nama}</strong> <br/>
@@ -67,7 +75,7 @@ const DetailAbsenModal = ({ isOpen, closeModal, santriId, bulan, tahun, viewType
                                             {dataToDisplay.length > 0 ? (
                                                 <table className="min-w-full text-sm divide-y divide-gray-200">
                                                     <thead className="bg-gray-50 sticky top-0">
-                                                         <tr>
+                                                        <tr>
                                                             <th className="px-4 py-2 text-left font-medium text-gray-500">Tanggal</th>
                                                             <th className="px-4 py-2 text-left font-medium text-gray-500">{viewType === 'asrama' ? 'Kegiatan' : 'Pelajaran'}</th>
                                                             <th className="px-4 py-2 text-left font-medium text-gray-500">Status</th>
@@ -77,13 +85,13 @@ const DetailAbsenModal = ({ isOpen, closeModal, santriId, bulan, tahun, viewType
                                                         {dataToDisplay.map((item, index) => (
                                                             <tr key={item.id_absen_kegiatan || item.id_absen_sekolah || index}>
                                                                 <td className="px-4 py-2 whitespace-nowrap text-gray-500">{moment(item.tanggal).format('dddd, DD MMM YYYY')}</td>
-                                                                <td className="px-4 py-2 whitespace-nowrap text-gray-500">
+                                                                <td className="px-4 py-2 whitespace-nowrap text-gray-700 font-medium">
                                                                     {viewType === 'asrama' 
                                                                         ? (item.nama_kegiatan || 'Kegiatan tidak terdefinisi') 
                                                                         : (item.JamPelajaran?.nama_jam || 'N/A')}
                                                                 </td>
                                                                 <td className="px-4 py-2 whitespace-nowrap">
-                                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${ item.status === 'Hadir' ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800' }`}>
+                                                                    <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${getStatusBadgeColor(item.status)}`}>
                                                                         {item.status}
                                                                     </span>
                                                                 </td>
@@ -109,7 +117,6 @@ const DetailAbsenModal = ({ isOpen, closeModal, santriId, bulan, tahun, viewType
     );
 };
 
-// Komponen utama halaman rekap
 export default function RekapPage() {
     const { token } = useAuth();
     const [rekapData, setRekapData] = useState([]);
@@ -207,9 +214,27 @@ export default function RekapPage() {
                     const santriInClass = groupedData[gender][className];
                     printContent += `<div style="page-break-after: always;">`;
                     printContent += `<h3>Rekap Kelas: ${className} (${gender})</h3>`;
-                    printContent += `<table><thead><tr><th>Nama Santri</th><th>Performa Asrama (%)</th><th>Performa Sekolah (%)</th></tr></thead><tbody>`;
+                    printContent += `
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th rowspan="2" style="vertical-align: middle;">Nama Santri</th>
+                                    <th colspan="5">Asrama</th>
+                                    <th colspan="5">Sekolah</th>
+                                </tr>
+                                <tr>
+                                    <th>H</th><th>I</th><th>S</th><th>A</th><th>Perf. (%)</th>
+                                    <th>H</th><th>I</th><th>S</th><th>A</th><th>Perf. (%)</th>
+                                </tr>
+                            </thead>
+                            <tbody>`;
                     santriInClass.forEach(s => {
-                        printContent += `<tr><td>${s.nama}</td><td>${s.performa_asrama.toFixed(1)}</td><td>${s.performa_sekolah.toFixed(1)}</td></tr>`;
+                        printContent += `
+                            <tr>
+                                <td>${s.nama}</td>
+                                <td>${s.rekap_asrama.H}</td><td>${s.rekap_asrama.I}</td><td>${s.rekap_asrama.S}</td><td>${s.rekap_asrama.A}</td><td>${s.rekap_asrama.performa.toFixed(1)}</td>
+                                <td>${s.rekap_sekolah.H}</td><td>${s.rekap_sekolah.I}</td><td>${s.rekap_sekolah.S}</td><td>${s.rekap_sekolah.A}</td><td>${s.rekap_sekolah.performa.toFixed(1)}</td>
+                            </tr>`;
                     });
                     printContent += `</tbody></table></div>`;
                 });
@@ -219,7 +244,18 @@ export default function RekapPage() {
         const printWindow = window.open('', '_blank');
         printWindow.document.write(`
             <html><head><title>Rekap Absensi Santri - ${period}</title>
-            <style> body { font-family: sans-serif; } table { width: 100%; border-collapse: collapse; margin-top: 10px; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; font-size: 12px; } th { background-color: #f2f2f2; } h1, h2 { text-align: center; } h3 { text-align: left; margin-top: 20px; padding-bottom: 5px; border-bottom: 1px solid #ccc;} @media print { .no-print { display: none; } div { page-break-inside: avoid; } } </style>
+            <style> 
+                body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; font-size: 9px; } 
+                table { width: 100%; border-collapse: collapse; margin-top: 10px; } 
+                th, td { border: 1px solid #ddd; padding: 5px; text-align: center; } 
+                td:first-child { text-align: left; }
+                th { background-color: #f2f2f2; } 
+                h1, h2 { text-align: center; margin: 5px 0; }
+                h1 { font-size: 16px;}
+                h2 { font-size: 14px; font-weight: normal; }
+                h3 { text-align: left; margin-top: 20px; padding-bottom: 5px; border-bottom: 1px solid #ccc;} 
+                @media print { .no-print { display: none; } div { page-break-inside: avoid; } } 
+            </style>
             </head><body> <h1>Rekap Absensi Seluruh Santri</h1><h2>Periode: ${period}</h2> ${printContent} <script>window.onload = function() { window.print(); window.close(); }</script> </body></html>`);
         printWindow.document.close();
     };
@@ -233,34 +269,26 @@ export default function RekapPage() {
                     <div className="md:col-span-2">
                         <label className="text-sm font-medium text-gray-700">Periode</label>
                         <div className="flex gap-2 mt-1">
-                            <select value={filterBulan} onChange={e => setFilterBulan(e.target.value)} className="block w-full text-sm border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-gray-500">
+                            <select value={filterBulan} onChange={e => setFilterBulan(e.target.value)} className="block w-full text-sm border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-gray-900">
                                 {moment.months().map((m, i) => (<option key={i+1} value={i+1}>{m}</option>))}
                             </select>
-                            <select value={filterTahun} onChange={e => setFilterTahun(e.target.value)} className="block w-full text-sm border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-gray-500">
+                            <select value={filterTahun} onChange={e => setFilterTahun(e.target.value)} className="block w-full text-sm border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-gray-900">
                                 {generateYears().map(y => <option key={y} value={y}>{y}</option>)}
                             </select>
                         </div>
                     </div>
                     <div className="md:col-span-2">
-                         <label className="text-sm font-medium text-gray-700">Kelas </label>
-                        <select value={filterKelas} onChange={e => setFilterKelas(e.target.value)} className="mt-1 block w-full text-sm border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-gray-500">
+                         <label className="text-sm font-medium text-gray-700">Kelas</label>
+                        <select value={filterKelas} onChange={e => setFilterKelas(e.target.value)} className="mt-1 block w-full text-sm border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-gray-900">
                             <option value="">Semua Kelas</option>
-                            {kelasOptions
-                                .filter(k => k.nama_kelas.toLowerCase() !== 'alumni')
-                                .map(k => <option key={k.id_kelas} value={k.id_kelas}>{k.nama_kelas}</option>)}
+                            {kelasOptions.map(k => <option key={k.id_kelas} value={k.id_kelas}>{k.nama_kelas}</option>)}
                         </select>
                     </div>
                      <div className="md:col-span-2">
                         <label className="text-sm font-medium text-gray-700">Cari Nama Santri</label>
                          <div className="relative mt-1">
                             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" />
-                            <input 
-                                type="text"
-                                value={searchTerm}
-                                onChange={e => setSearchTerm(e.target.value)}
-                                placeholder="Ketik nama..."
-                                className="block w-full pl-10 text-sm border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-gray-500"
-                            />
+                            <input type="text" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} placeholder="Ketik nama..." className="block w-full pl-10 text-sm border-gray-300 rounded-md shadow-sm px-3 py-2.5 text-gray-900" />
                          </div>
                     </div>
                 </div>
@@ -300,8 +328,24 @@ export default function RekapPage() {
                                         {filteredData.map((santri) => (
                                             <tr key={santri.id_santri}>
                                                 <td className="px-6 py-4 whitespace-nowrap"><div className="text-sm font-medium text-gray-900">{santri.nama}</div><div className="text-sm text-gray-500">{santri.nama_kelas}</div></td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{santri.performa_asrama.toFixed(1)}%</td>
-                                                <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-800">{santri.performa_sekolah.toFixed(1)}%</td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm font-semibold text-gray-800">{santri.rekap_asrama.performa.toFixed(1)}%</div>
+                                                    <div className="text-xs space-x-2">
+                                                        <span className="font-medium text-green-600">H:{santri.rekap_asrama.H}</span>
+                                                        <span className="font-medium text-blue-600">I:{santri.rekap_asrama.I}</span>
+                                                        <span className="font-medium text-yellow-600">S:{santri.rekap_asrama.S}</span>
+                                                        <span className="font-medium text-red-600">A:{santri.rekap_asrama.A}</span>
+                                                    </div>
+                                                </td>
+                                                <td className="px-6 py-4 whitespace-nowrap">
+                                                    <div className="text-sm font-semibold text-gray-800">{santri.rekap_sekolah.performa.toFixed(1)}%</div>
+                                                    <div className="text-xs space-x-2">
+                                                        <span className="font-medium text-green-600">H:{santri.rekap_sekolah.H}</span>
+                                                        <span className="font-medium text-blue-600">I:{santri.rekap_sekolah.I}</span>
+                                                        <span className="font-medium text-yellow-600">S:{santri.rekap_sekolah.S}</span>
+                                                        <span className="font-medium text-red-600">A:{santri.rekap_sekolah.A}</span>
+                                                    </div>
+                                                </td>
                                                 <td className="px-6 py-4 whitespace-nowrap text-center text-sm font-medium">
                                                     <div className="flex justify-center items-center space-x-2">
                                                         <button onClick={() => handleViewDetail(santri.id_santri, 'asrama')} title="Lihat Absen Asrama" className="p-2 text-blue-600 hover:bg-blue-100 rounded-full"><FiEye size={16}/></button>
@@ -326,14 +370,26 @@ export default function RekapPage() {
                                                 <button onClick={() => handleViewDetail(santri.id_santri, 'sekolah')} className="p-2 text-green-600 hover:bg-green-100 rounded-full"><FiEye size={18}/></button>
                                             </div>
                                         </div>
-                                        <div className="mt-4 grid grid-cols-2 gap-4 text-center">
-                                            <div>
-                                                <p className="text-xs text-gray-500">Asrama</p>
-                                                <p className="text-lg font-semibold text-gray-500">{santri.performa_asrama.toFixed(1)}%</p>
+                                        <div className="mt-4 grid grid-cols-2 gap-4">
+                                            <div className="border rounded-md p-2">
+                                                <p className="text-xs text-center font-semibold text-gray-600 mb-2">Asrama</p>
+                                                <p className="text-lg text-center font-bold text-blue-600">{santri.rekap_asrama.performa.toFixed(1)}%</p>
+                                                <p className="text-xs text-center mt-1 space-x-1.5">
+                                                    <span className="font-medium text-green-600">H:{santri.rekap_asrama.H}</span>
+                                                    <span className="font-medium text-blue-600">I:{santri.rekap_asrama.I}</span>
+                                                    <span className="font-medium text-yellow-600">S:{santri.rekap_asrama.S}</span>
+                                                    <span className="font-medium text-red-600">A:{santri.rekap_asrama.A}</span>
+                                                </p>
                                             </div>
-                                            <div>
-                                                <p className="text-xs text-gray-500">Sekolah</p>
-                                                <p className="text-lg font-semibold text-gray-500">{santri.performa_sekolah.toFixed(1)}%</p>
+                                            <div className="border rounded-md p-2">
+                                                <p className="text-xs text-center font-semibold text-gray-600 mb-2">Sekolah</p>
+                                                <p className="text-lg text-center font-bold text-green-600">{santri.rekap_sekolah.performa.toFixed(1)}%</p>
+                                                 <p className="text-xs text-center mt-1 space-x-1.5">
+                                                    <span className="font-medium text-green-600">H:{santri.rekap_sekolah.H}</span>
+                                                    <span className="font-medium text-blue-600">I:{santri.rekap_sekolah.I}</span>
+                                                    <span className="font-medium text-yellow-600">S:{santri.rekap_sekolah.S}</span>
+                                                    <span className="font-medium text-red-600">A:{santri.rekap_sekolah.A}</span>
+                                                </p>
                                             </div>
                                         </div>
                                     </div>
@@ -355,4 +411,3 @@ export default function RekapPage() {
         </div>
     );
 }
-

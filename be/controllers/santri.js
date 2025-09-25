@@ -4,6 +4,18 @@ const { Santri, Kelas, Ortu, User, Role, sequelize } = require('../models');
 const { Op } = require('sequelize');
 const bcrypt = require('bcrypt');
 
+// Fungsi validasi helper
+const validateCredentials = (username, password) => {
+    if (username && /\s/.test(username)) {
+        return { valid: false, message: 'Username tidak boleh mengandung spasi.' };
+    }
+    if (password && password.length < 6) {
+        return { valid: false, message: 'Password minimal harus 6 karakter.' };
+    }
+    return { valid: true };
+};
+
+
 const getAll = async (req, res) => {
   try {
     const adminJenisKelamin = req.user.jenis_kelamin;
@@ -18,6 +30,7 @@ const getAll = async (req, res) => {
       include: [
         { 
           model: Kelas, 
+          as: 'Kela', // Pastikan alias ini konsisten
           attributes: ['id_kelas', 'nama_kelas'] 
         },
         {
@@ -44,7 +57,7 @@ const getById = async (req, res) => {
     try {
         const santri = await Santri.findByPk(id, {
             include: [
-                { model: Kelas, attributes: ['id_kelas', 'nama_kelas'] },
+                { model: Kelas, as: 'Kela', attributes: ['id_kelas', 'nama_kelas'] },
                 { 
                   model: Ortu, 
                   required: false,
@@ -75,13 +88,20 @@ const create = async (req, res) => {
         let ortuPayload = { ...restOrtuData };
 
         if (username && password) {
+            const validation = validateCredentials(username, password);
+            if (!validation.valid) {
+                await transaction.rollback();
+                return res.status(400).json({ message: validation.message });
+            }
+
             const ortuRole = await Role.findOne({ where: { slug: 'orang-tua' } });
             if (!ortuRole) {
                 await transaction.rollback();
-                return res.status(500).json({ message: "Role 'orang-tua' tidak ditemukan di database. Silakan hubungi administrator." });
+                return res.status(500).json({ message: "Role 'orang-tua' tidak ditemukan. Hubungi administrator." });
             }
 
-            const existingUser = await User.findOne({ where: { username } });
+            const normalizedUsername = username.toLowerCase();
+            const existingUser = await User.findOne({ where: { username: normalizedUsername } });
             if (existingUser) {
                 await transaction.rollback();
                 return res.status(400).json({ message: 'Username sudah digunakan.' });
@@ -91,11 +111,10 @@ const create = async (req, res) => {
 
             const newUser = await User.create({
                 nama: ortuData.nama_ortu_lk || `Wali dari ${santriData.nama}`,
-                username: username,
-                email: `${username}-${Date.now()}@pesantren.local`,
+                username: normalizedUsername,
+                email: `${normalizedUsername}-${Date.now()}@pesantren.local`,
                 password: hashedPassword,
                 id_role: ortuRole.id_role,
-                jenis_kelamin: null, 
             }, { transaction });
 
             ortuPayload.id_user = newUser.id_user;
@@ -137,48 +156,45 @@ const update = async (req, res) => {
     delete santriData.id_ortu;
     await santri.update(santriData, { transaction });
 
-    if (santri.id_ortu && ortuData) {
+    if (santri.Ortu && ortuData) {
         await Ortu.update(ortuData, {
-            where: { id_ortu: santri.id_ortu },
+            where: { id_ortu: santri.Ortu.id_ortu },
             transaction
         });
-    } else if (ortuData) {
-        const newOrtu = await Ortu.create(ortuData, { transaction });
-        await santri.update({ id_ortu: newOrtu.id_ortu }, { transaction });
     }
-    
-    // --- PERBAIKAN LOGIKA MANAJEMEN AKUN ---
 
-    // Muat ulang data santri dan ortu setelah update untuk mendapatkan data terbaru
-    const updatedSantri = await Santri.findByPk(id, { include: [Ortu], transaction });
-    
-    // Kasus 1: Buat user baru jika belum ada & form diisi
-    if (updatedSantri.Ortu && !updatedSantri.Ortu.id_user && newUsername && newPassword) {
+    const updatedSantri = await Santri.findByPk(id, { include: [{ model: Ortu, include: [User] }], transaction });
+
+    // Case 1: Create a new user if one doesn't exist and credentials are provided
+    if (updatedSantri.Ortu && !updatedSantri.Ortu.User && newUsername && newPassword) {
+        const validation = validateCredentials(newUsername, newPassword);
+        if (!validation.valid) throw new Error(validation.message);
+
         const ortuRole = await Role.findOne({ where: { slug: 'orang-tua' }, transaction });
         if (!ortuRole) throw new Error("Role 'orang-tua' tidak ditemukan.");
 
-        const existingUser = await User.findOne({ where: { username: newUsername }, transaction });
+        const normalizedUsername = newUsername.toLowerCase();
+        const existingUser = await User.findOne({ where: { username: normalizedUsername }, transaction });
         if (existingUser) throw new Error('Username sudah digunakan.');
 
         const hashedPassword = await bcrypt.hash(newPassword, 8);
         const newUser = await User.create({
             nama: updatedSantri.Ortu.nama_ortu_lk || `Wali dari ${updatedSantri.nama}`,
-            username: newUsername,
-            email: `${newUsername}-${Date.now()}@pesantren.local`,
+            username: normalizedUsername,
+            email: `${normalizedUsername}-${Date.now()}@pesantren.local`,
             password: hashedPassword,
             id_role: ortuRole.id_role,
-            jenis_kelamin: null,
         }, { transaction });
         
-        await Ortu.update({ id_user: newUser.id_user }, { where: { id_ortu: updatedSantri.id_ortu }, transaction });
+        await updatedSantri.Ortu.update({ id_user: newUser.id_user }, { transaction });
     } 
-    // Kasus 2: Reset password untuk user yang sudah ada
-    else if (updatedSantri.Ortu && updatedSantri.Ortu.id_user && newPassword) {
+    // Case 2: Reset password for an existing user
+    else if (updatedSantri.Ortu && updatedSantri.Ortu.User && newPassword) {
+        const validation = validateCredentials(null, newPassword);
+        if (!validation.valid) throw new Error(validation.message);
+        
         const hashedPassword = await bcrypt.hash(newPassword, 8);
-        await User.update(
-            { password: hashedPassword },
-            { where: { id_user: updatedSantri.Ortu.id_user }, transaction }
-        );
+        await updatedSantri.Ortu.User.update({ password: hashedPassword }, { transaction });
     }
     
     await transaction.commit();
@@ -187,7 +203,7 @@ const update = async (req, res) => {
   } catch (error) {
     await transaction.rollback();
     console.error(`Error updating santri with id ${id}:`, error);
-    res.status(500).json({ message: 'Gagal memperbarui data santri', error: error.message });
+    res.status(400).json({ message: error.message || 'Gagal memperbarui data santri' });
   }
 };
 
@@ -196,14 +212,19 @@ const promoteAll = async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
         const adminJenisKelamin = req.user.jenis_kelamin;
-        const whereCondition = {};
+        const whereCondition = { status_aktif: true };
 
         if (adminJenisKelamin === 'Putra' || adminJenisKelamin === 'Putri') {
             whereCondition.jenis_kelamin = adminJenisKelamin;
         }
         
+        const alumniClass = await Kelas.findOne({ where: { nama_kelas: 'Alumni' } });
+        if (!alumniClass) {
+            throw new Error('Kelas "Alumni" tidak ditemukan.');
+        }
+
         const [graduatedCount] = await Santri.update(
-            { id_kelas: 7 },
+            { id_kelas: alumniClass.id_kelas },
             { where: { ...whereCondition, id_kelas: 6 }, transaction }
         );
 
@@ -211,11 +232,12 @@ const promoteAll = async (req, res) => {
             { id_kelas: sequelize.literal('id_kelas + 1') },
             { where: { ...whereCondition, id_kelas: { [Op.between]: [1, 5] } }, transaction }
         );
-        const promotedCount = Array.isArray(promotedResult) ? promotedResult.length : promotedResult;
+        const promotedCount = Array.isArray(promotedResult) ? promotedResult.length : (promotedResult?.affectedRows || 0);
+
 
         if (promotedCount === 0 && graduatedCount === 0) {
             await transaction.commit();
-            return res.status(200).json({ message: 'Tidak ada santri yang perlu diproses untuk asrama ini.' });
+            return res.status(200).json({ message: 'Tidak ada santri aktif yang perlu diproses untuk asrama ini.' });
         }
         
         await transaction.commit();
@@ -230,7 +252,6 @@ const promoteAll = async (req, res) => {
     }
 };
 
-// --- PERUBAHAN: Memfilter kelas "Alumni" ---
 const getAllKelas = async (req, res) => {
     try {
         const kelas = await Kelas.findAll({ 
@@ -255,4 +276,3 @@ module.exports = {
   promoteAll,
   getAllKelas,
 };
-

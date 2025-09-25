@@ -1,37 +1,35 @@
-// controllers/kehadiranSantriController.js
+// controllers/kehadiranSantri.js
 
 const { Santri, Kelas, AbsenKegiatan, sequelize } = require('../models');
 const { Op } = require('sequelize');
 
-// Fungsi untuk mengambil semua kelas SESUAI GENDER ADMIN
+// Helper function untuk mem-parsing nama kegiatan secara konsisten
+const parseNamaKegiatan = (id_kegiatan_unik) => {
+    try {
+        const parts = id_kegiatan_unik.split('-');
+        // Format rutin: rutin-{id_rutin}-{YYYY}-{MM}-{DD}-{nama_kegiatan}
+        if (parts[0] === 'rutin' && parts.length > 5) {
+            return parts.slice(5).join(' ').replace(/_/g, ' ');
+        }
+        // Format tambahan: tambahan-{id_kegiatan}-{nama_kegiatan}
+        if (parts[0] === 'tambahan' && parts.length > 2) {
+            return parts.slice(2).join(' ').replace(/_/g, ' ');
+        }
+        return 'Kegiatan Lainnya';
+    } catch (e) {
+        console.error("Gagal mem-parsing id_kegiatan_unik:", id_kegiatan_unik);
+        return 'Kegiatan Tidak Dikenali';
+    }
+};
+
 exports.getAllKelas = async (req, res) => {
   try {
-    const adminJenisKelamin = req.user.jenis_kelamin;
-    if (!adminJenisKelamin) {
-      return res.status(403).json({ message: "Akses ditolak: Jenis kelamin admin tidak ditemukan." });
-    }
-
-    const santriInKelas = await Santri.findAll({
-      where: { jenis_kelamin: adminJenisKelamin },
-      attributes: ['id_kelas'],
-      group: ['id_kelas'],
-    });
-
-    const kelasIds = santriInKelas.map(s => s.id_kelas);
-
-    if (kelasIds.length === 0) {
-      return res.status(200).json([]);
-    }
-
     const kelas = await Kelas.findAll({
       where: {
-        id_kelas: {
-          [Op.in]: kelasIds,
-        },
+        nama_kelas: { [Op.ne]: 'Alumni' }
       },
-      order: [['nama_kelas', 'ASC']],
+      order: [['id_kelas', 'ASC']],
     });
-    
     res.status(200).json(kelas);
   } catch (error) {
     console.error('Error fetching kelas:', error);
@@ -39,7 +37,7 @@ exports.getAllKelas = async (req, res) => {
   }
 };
 
-// Fungsi untuk mengambil daftar santri SESUAI GENDER ADMIN
+// REVISI BESAR: Fungsi ini sekarang akan menghitung rekap HISA dan performa
 exports.getAllSantri = async (req, res) => {
   try {
     const { id_kelas } = req.query;
@@ -49,33 +47,80 @@ exports.getAllSantri = async (req, res) => {
         jenis_kelamin: adminJenisKelamin
     };
 
-    if (id_kelas) {
+    if (id_kelas && id_kelas !== 'all') {
       whereClause.id_kelas = id_kelas;
     }
 
-    const santri = await Santri.findAll({
+    const santriList = await Santri.findAll({
       attributes: ['id_santri', 'nama'],
       include: {
         model: Kelas,
         as: 'Kela',
         attributes: ['nama_kelas'],
         required: true,
+        where: {
+            nama_kelas: { [Op.ne]: 'Alumni' }
+        }
       },
       where: whereClause,
-      order: [
-        ['nama', 'ASC'],
-      ],
+      order: [['nama', 'ASC']],
     });
 
-    res.status(200).json(santri);
+    if (santriList.length === 0) {
+        return res.status(200).json([]);
+    }
+
+    // Ambil semua absensi untuk santri yang difilter pada bulan ini
+    const santriIds = santriList.map(s => s.id_santri);
+    const bulanIni = new Date();
+    const startDate = new Date(bulanIni.getFullYear(), bulanIni.getMonth(), 1);
+    const endDate = new Date(bulanIni.getFullYear(), bulanIni.getMonth() + 1, 0);
+
+    const absensiBulanIni = await AbsenKegiatan.findAll({
+        where: {
+            id_santri: { [Op.in]: santriIds },
+            tanggal: { [Op.between]: [startDate, endDate] }
+        },
+        attributes: ['id_santri', 'status']
+    });
+
+    // Buat map untuk rekap absensi
+    const rekapMap = {};
+    santriIds.forEach(id => {
+        rekapMap[id] = { H: 0, I: 0, S: 0, A: 0, Total: 0 };
+    });
+
+    absensiBulanIni.forEach(absen => {
+        const rekap = rekapMap[absen.id_santri];
+        if (rekap) {
+            if (absen.status === 'Hadir') rekap.H++;
+            else if (absen.status === 'Izin') rekap.I++;
+            else if (absen.status === 'Sakit') rekap.S++;
+            else if (absen.status === 'Alpa') rekap.A++;
+            rekap.Total++;
+        }
+    });
+
+    // Gabungkan data santri dengan rekapnya
+    const santriWithRekap = santriList.map(santri => {
+        const rekap = rekapMap[santri.id_santri];
+        const performance = rekap.Total > 0 ? ((rekap.H / rekap.Total) * 100).toFixed(0) : 0;
+        return {
+            ...santri.toJSON(),
+            rekap: {
+                ...rekap,
+                performance: parseInt(performance)
+            }
+        };
+    });
+
+    res.status(200).json(santriWithRekap);
   } catch (error) {
-    console.error('Error fetching santri:', error);
+    console.error('Error fetching santri with rekap:', error);
     res.status(500).json({ message: 'Internal server error', error: error.message });
   }
 };
 
-
-// Fungsi getAbsensiSantri tidak diubah
 exports.getAbsensiSantri = async (req, res) => {
   try {
     const { id_santri } = req.params;
@@ -99,23 +144,11 @@ exports.getAbsensiSantri = async (req, res) => {
     });
 
     const formattedAbsensi = absensi.map(absen => {
-        let nama_kegiatan = 'Kegiatan Tidak Dikenali';
-        try {
-            const parts = absen.id_kegiatan_unik.split('-');
-            if(parts[0] === 'rutin' && parts.length > 3) {
-                 nama_kegiatan = parts.slice(3).join(' ').replace(/_/g, ' ');
-            } else if (parts[0] === 'tambahan') {
-                nama_kegiatan = parts.slice(2).join(' ').replace(/_/g, ' ');
-            }
-        } catch(e) {
-            console.error("Gagal mem-parsing id_kegiatan_unik:", absen.id_kegiatan_unik);
-        }
-        
         return {
             id_absen_kegiatan: absen.id_absen_kegiatan,
             tanggal: absen.tanggal,
             status: absen.status,
-            nama_kegiatan: nama_kegiatan
+            nama_kegiatan: parseNamaKegiatan(absen.id_kegiatan_unik)
         };
     });
 
@@ -126,147 +159,77 @@ exports.getAbsensiSantri = async (req, res) => {
   }
 };
 
-
-// Fungsi untuk mengambil rekap PDF harian dalam sebulan
+// REVISI BESAR: Fungsi rekap cetak ditambahkan kolom HISA dan Performa
 exports.getRekapUntukCetak = async (req, res) => {
     try {
         const { bulan, tahun } = req.query;
         const adminJenisKelamin = req.user.jenis_kelamin;
-
-        if (!bulan || !tahun) {
-            return res.status(400).json({ message: 'Parameter bulan dan tahun diperlukan.' });
-        }
-
+        if (!bulan || !tahun) return res.status(400).json({ message: 'Parameter bulan dan tahun diperlukan.' });
+        
         const startDate = new Date(tahun, bulan - 1, 1);
         const endDate = new Date(tahun, bulan, 0);
         const daysInMonth = endDate.getDate();
 
-        // 1. Ambil SEMUA santri yang relevan, dikelompokkan berdasarkan kelas
         const kelasDenganSantri = await Kelas.findAll({
-            include: [{
-                model: Santri,
-                as: 'Santris', // Menggunakan alias 'Santris' dari Kelas ke Santri
-                where: { jenis_kelamin: adminJenisKelamin },
-                required: true, // Hanya ambil kelas yang memiliki santri sesuai gender
-                attributes: ['id_santri', 'nama']
-            }],
-            order: [
-                ['nama_kelas', 'ASC'],
-                [{ model: Santri, as: 'Santris' }, 'nama', 'ASC']
-            ]
+            include: [{ model: Santri, as: 'Santris', where: { jenis_kelamin: adminJenisKelamin }, required: true, attributes: ['id_santri', 'nama'] }],
+            where: { nama_kelas: { [Op.ne]: 'Alumni' } },
+            order: [['id_kelas', 'ASC'], [{ model: Santri, as: 'Santris' }, 'nama', 'ASC']]
         });
 
         const bulanName = new Date(tahun, bulan - 1).toLocaleString('id-ID', { month: 'long' });
-        if (kelasDenganSantri.length === 0) {
-            return res.status(200).json({ meta: { bulan: bulanName, tahun: parseInt(tahun), daysInMonth }, data: {} });
-        }
+        if (kelasDenganSantri.length === 0) return res.status(200).json({ meta: { bulan: bulanName, tahun: parseInt(tahun), daysInMonth }, data: {} });
 
-        // 2. Kumpulkan semua ID santri dari hasil query di atas
-        const santriIds = [];
-        kelasDenganSantri.forEach(kelas => {
-            kelas.Santris.forEach(santri => {
-                santriIds.push(santri.id_santri);
-            });
-        });
-
-        // 3. Ambil SEMUA absensi yang relevan untuk santri-santri tersebut di bulan ini
-        const allAbsensi = await AbsenKegiatan.findAll({
-            where: {
-                id_santri: { [Op.in]: santriIds },
-                tanggal: { [Op.between]: [startDate, endDate] }
-            }
-        });
-
-        // 4. Buat daftar semua kegiatan unik yang terjadi di bulan itu
-        const uniqueKegiatanSet = new Set();
-        allAbsensi.forEach(absen => {
-            let nama_kegiatan = 'Lainnya';
-            try {
-                const parts = absen.id_kegiatan_unik.split('-');
-                // PERBAIKAN: Logika parsing nama kegiatan disesuaikan
-                if (parts[0] === 'rutin' && parts.length > 5) {
-                    nama_kegiatan = parts.slice(5).join(' ').replace(/_/g, ' ');
-                } else if (parts[0] === 'tambahan' && parts.length > 2) {
-                    nama_kegiatan = parts.slice(2).join(' ').replace(/_/g, ' ');
-                }
-                uniqueKegiatanSet.add(nama_kegiatan);
-            } catch(e) {}
-        });
-        const uniqueKegiatanList = Array.from(uniqueKegiatanSet).sort();
-
-        // Jika tidak ada kegiatan sama sekali di bulan itu, buat rekap kosong agar semua santri tetap tampil
-        if (uniqueKegiatanList.length === 0) {
-            uniqueKegiatanList.push("Tidak ada kegiatan tercatat");
-        }
-
-        // 5. Buat PETA (Map) absensi untuk pencarian cepat
-        const absensiMap = {};
-        const shortStatus = { 'Hadir': 'H', 'Izin': 'I', 'Sakit': 'S', 'Alpa': 'A' };
-        const statusPriority = { 'A': 4, 'S': 3, 'I': 2, 'H': 1 };
+        const santriIds = kelasDenganSantri.flatMap(k => k.Santris.map(s => s.id_santri));
+        const allAbsensi = await AbsenKegiatan.findAll({ where: { id_santri: { [Op.in]: santriIds }, tanggal: { [Op.between]: [startDate, endDate] } } });
         
+        const uniqueKegiatanSet = new Set(allAbsensi.map(a => parseNamaKegiatan(a.id_kegiatan_unik)));
+        const uniqueKegiatanList = Array.from(uniqueKegiatanSet).sort();
+        if (uniqueKegiatanList.length === 0) uniqueKegiatanList.push("Tidak ada kegiatan tercatat");
+
+        const absensiMap = {};
+        const rekapTotalSantri = {}; // Untuk HISA & Performa
+        const shortStatus = { 'Hadir': 'H', 'Izin': 'I', 'Sakit': 'S', 'Alpa': 'A' };
+        
+        santriIds.forEach(id => { rekapTotalSantri[id] = { H: 0, I: 0, S: 0, A: 0, Total: 0 }; });
+
         allAbsensi.forEach(absen => {
             const santriId = absen.id_santri;
             const day = new Date(absen.tanggal).getDate();
-            let nama_kegiatan = 'Lainnya';
-            try {
-                const parts = absen.id_kegiatan_unik.split('-');
-                // PERBAIKAN: Logika parsing nama kegiatan disesuaikan
-                if(parts[0] === 'rutin' && parts.length > 5) nama_kegiatan = parts.slice(5).join(' ').replace(/_/g, ' ');
-                else if (parts[0] === 'tambahan' && parts.length > 2) nama_kegiatan = parts.slice(2).join(' ').replace(/_/g, ' ');
-            } catch (e) {}
+            const nama_kegiatan = parseNamaKegiatan(absen.id_kegiatan_unik);
 
+            // Kalkulasi Harian
             if (!absensiMap[santriId]) absensiMap[santriId] = {};
             if (!absensiMap[santriId][nama_kegiatan]) absensiMap[santriId][nama_kegiatan] = {};
-            
-            const currentStatus = shortStatus[absen.status];
-            const existingStatus = absensiMap[santriId][nama_kegiatan][day];
+            absensiMap[santriId][nama_kegiatan][day] = shortStatus[absen.status] || '-';
 
-            if (!existingStatus || statusPriority[currentStatus] > statusPriority[existingStatus]) {
-                 absensiMap[santriId][nama_kegiatan][day] = currentStatus;
+            // Kalkulasi Total Bulanan
+            const rekap = rekapTotalSantri[santriId];
+            if (rekap) {
+                if (absen.status === 'Hadir') rekap.H++; else if (absen.status === 'Izin') rekap.I++; else if (absen.status === 'Sakit') rekap.S++; else if (absen.status === 'Alpa') rekap.A++;
+                rekap.Total++;
             }
         });
-        
-        // 6. Bangun struktur data final
+
         const rekapData = {};
         kelasDenganSantri.forEach(kelas => {
-            const kelasNama = kelas.nama_kelas;
-            rekapData[kelasNama] = [];
-
-            kelas.Santris.forEach(santri => {
-                const santriRekap = {
-                    nama: santri.nama,
-                    kegiatan: []
-                };
-                const santriAbsenData = absensiMap[santri.id_santri] || {};
-
-                uniqueKegiatanList.forEach(namaKegiatan => {
-                    const kegiatanRekap = {
-                        nama_kegiatan: namaKegiatan,
-                        harian: {}
-                    };
-                    const kegiatanAbsen = santriAbsenData[namaKegiatan] || {};
-                    for (let day = 1; day <= daysInMonth; day++) {
-                        kegiatanRekap.harian[day] = kegiatanAbsen[day] || '-';
-                    }
-                    santriRekap.kegiatan.push(kegiatanRekap);
-                });
+            rekapData[kelas.nama_kelas] = kelas.Santris.map(santri => {
+                const rekap = rekapTotalSantri[santri.id_santri];
+                const performance = rekap.Total > 0 ? ((rekap.H / rekap.Total) * 100).toFixed(0) + '%' : '0%';
                 
-                rekapData[kelasNama].push(santriRekap);
+                return {
+                    nama: santri.nama,
+                    rekap: { ...rekap, performance },
+                    kegiatan: uniqueKegiatanList.map(namaKegiatan => ({
+                        nama_kegiatan: namaKegiatan,
+                        harian: Object.fromEntries(Array.from({ length: daysInMonth }, (_, i) => [i + 1, absensiMap[santri.id_santri]?.[namaKegiatan]?.[i + 1] || '-']))
+                    }))
+                };
             });
         });
-
-        const finalResponse = {
-            meta: {
-                bulan: bulanName,
-                tahun: parseInt(tahun),
-                daysInMonth: daysInMonth
-            },
-            data: rekapData
-        };
-        res.status(200).json(finalResponse);
+        
+        res.status(200).json({ meta: { bulan: bulanName, tahun: parseInt(tahun), daysInMonth }, data: rekapData });
     } catch (error) {
         console.error('Error fetching rekap untuk cetak:', error);
         res.status(500).json({ message: 'Internal server error', error: error.message });
     }
 };
-

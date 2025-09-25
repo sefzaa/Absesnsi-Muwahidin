@@ -1,4 +1,4 @@
-// file: controllers/pegawai.controller.js
+// file: controllers/pegawai.js
 const { Pegawai, User, Jabatan, Role, sequelize } = require('../models');
 const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
@@ -24,7 +24,7 @@ exports.getAllPegawai = async (req, res) => {
                 attributes: ['nama_jabatan'],
             }, {
                 model: User,
-                attributes: ['username'] // Email tidak lagi diambil
+                attributes: ['username']
             }],
             order: [['nama', 'ASC']]
         });
@@ -32,7 +32,7 @@ exports.getAllPegawai = async (req, res) => {
         const formattedData = pegawaiData.map(p => ({
             id_pegawai: p.id_pegawai,
             nama: p.nama,
-            nip: p.nip || '-', // Tampilkan '-' jika NIP null
+            nip: p.nip || '-',
             jenis_kelamin: p.jenis_kelamin === 'Laki-laki' ? 'Putra' : 'Putri',
             tempat_lahir: p.tempat_lahir,
             tanggal_lahir: p.tanggal_lahir,
@@ -82,20 +82,18 @@ exports.createPegawai = async (req, res) => {
             role = await Role.create({ nama_role: 'Pegawai', slug: 'pegawai' }, { transaction: t });
         }
         
-        // Buat email dummy yang unik berdasarkan username untuk memenuhi constraint database
         const dummyEmail = `${username.toLowerCase().replace(/\s+/g, '_')}-${uuidv4().slice(0,8)}@pesantren.local`;
 
         const newUser = await User.create({
             nama,
             username,
-            email: dummyEmail, // Menggunakan email dummy
+            email: dummyEmail,
             password: bcrypt.hashSync(password, 8),
-            jenis_kelamin: jenis_kelamin, // PERBAIKAN: Langsung gunakan dari body
+            jenis_kelamin: jenis_kelamin,
             id_role: role.id_role
         }, { transaction: t });
         
         const jenisKelaminPegawai = jenis_kelamin === 'Putra' ? 'Laki-laki' : 'Perempuan';
-        // Simpan null jika NIP adalah '-'
         const finalNip = nip && nip.trim() === '-' ? null : nip;
 
         const newPegawai = await Pegawai.create({
@@ -103,7 +101,7 @@ exports.createPegawai = async (req, res) => {
             id_jabatan: finalJabatanId,
             id_user: newUser.id_user,
             nama,
-            nip: finalNip, // Menggunakan NIP yang sudah diolah
+            nip: finalNip,
             jenis_kelamin: jenisKelaminPegawai,
             tempat_lahir,
             tanggal_lahir: tanggal_lahir || null,
@@ -113,7 +111,7 @@ exports.createPegawai = async (req, res) => {
         }, { transaction: t });
 
         await t.commit();
-        res.status(201).json(newPegawai);
+        res.status(201).json({ message: 'Data pegawai baru berhasil disimpan.', data: newPegawai });
     } catch (error) {
         await t.rollback();
         if (error.name === 'SequelizeUniqueConstraintError') {
@@ -153,7 +151,7 @@ exports.updatePegawai = async (req, res) => {
 
         if (pegawai.User) {
             pegawai.User.nama = nama;
-            pegawai.User.jenis_kelamin = jenis_kelamin; // PERBAIKAN: Langsung gunakan dari body
+            pegawai.User.jenis_kelamin = jenis_kelamin;
 
             if (password) {
                 pegawai.User.password = bcrypt.hashSync(password, 8);
@@ -173,7 +171,7 @@ exports.updatePegawai = async (req, res) => {
         }, { transaction: t });
 
         await t.commit();
-        res.status(200).json(pegawai);
+        res.status(200).json({ message: 'Data pegawai berhasil diperbarui.', data: pegawai });
     } catch (error) {
         await t.rollback();
         if (error.name === 'SequelizeUniqueConstraintError') {
@@ -209,5 +207,3 @@ exports.deletePegawai = async (req, res) => {
         res.status(500).json({ message: 'Gagal menghapus data pegawai.', error: error.message });
     }
 };
-
-

@@ -1,4 +1,4 @@
-// file: controllers/ortu.controller.js
+// file: controllers/ortu.js
 const db = require('../models');
 const { Op } = require('sequelize');
 const Santri = db.Santri;
@@ -11,7 +11,6 @@ const JamPelajaran = db.JamPelajaran;
 // Fungsi untuk mendapatkan daftar anak dari orang tua yang login
 exports.getAnakList = async (req, res) => {
     try {
-        // req.user didapat dari middleware verifyToken
         const ortu = await Ortu.findOne({ where: { id_user: req.user.id_user } });
         if (!ortu) {
             return res.status(404).send({ message: "Data orang tua tidak ditemukan." });
@@ -39,7 +38,6 @@ exports.getAbsensiDetail = async (req, res) => {
             return res.status(400).send({ message: "Filter bulan dan tahun diperlukan." });
         }
 
-        // Validasi kepemilikan: pastikan santri adalah anak dari ortu yang login
         const ortu = await Ortu.findOne({ where: { id_user: req.user.id_user } });
         const santri = await Santri.findOne({ where: { id_santri, id_ortu: ortu.id_ortu } });
 
@@ -53,9 +51,7 @@ exports.getAbsensiDetail = async (req, res) => {
         const absensiKegiatan = await AbsenKegiatan.findAll({
             where: {
                 id_santri,
-                tanggal: {
-                    [Op.between]: [startDate, endDate]
-                }
+                tanggal: { [Op.between]: [startDate, endDate] }
             },
             include: [
                 { model: Kegiatan, attributes: ['nama'], required: false }
@@ -63,14 +59,22 @@ exports.getAbsensiDetail = async (req, res) => {
             order: [['tanggal', 'DESC']]
         });
         
-        // Memformat nama kegiatan agar lebih baik
+        // REVISI: Memperbaiki parsing nama kegiatan rutin
         const formattedAbsensiKegiatan = absensiKegiatan.map(absen => {
-            let nama_kegiatan = 'Kegiatan Rutin';
+            let nama_kegiatan = 'Kegiatan';
             if (absen.Kegiatan) {
                 nama_kegiatan = absen.Kegiatan.nama;
             } else if (absen.id_kegiatan_unik.startsWith('rutin-')) {
-                 // Ekstrak nama dari id unik, contoh: rutin-1-2025-09-02-Shalat_Subuh -> Shalat Subuh
-                nama_kegiatan = absen.id_kegiatan_unik.split('-').slice(3).join(' ').replace(/_/g, ' ');
+                const parts = absen.id_kegiatan_unik.split('-');
+                // Format: rutin-{id}-{YYYY}-{MM}-{DD}-{nama}
+                if (parts.length > 5) {
+                    nama_kegiatan = parts.slice(5).join(' ').replace(/_/g, ' ');
+                }
+            } else if (absen.id_kegiatan_unik.startsWith('tambahan-')) {
+                 const parts = absen.id_kegiatan_unik.split('-');
+                 if (parts.length > 2) {
+                    nama_kegiatan = parts.slice(2).join(' ').replace(/_/g, ' ');
+                 }
             }
             return {
                 id_absen_kegiatan: absen.id_absen_kegiatan,
@@ -80,13 +84,10 @@ exports.getAbsensiDetail = async (req, res) => {
             };
         });
 
-
         const absensiSekolah = await AbsenSekolah.findAll({
             where: {
                 id_santri,
-                tanggal: {
-                    [Op.between]: [startDate, endDate]
-                }
+                tanggal: { [Op.between]: [startDate, endDate] }
             },
             include: [
                 { model: JamPelajaran, attributes: ['nama_jam', 'jam_mulai', 'jam_selesai'] }

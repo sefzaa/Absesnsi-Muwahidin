@@ -20,7 +20,12 @@ const menuItems = [
     group: "Main Menu",
     items: [
       { name: "Dashboard", icon: FiHome, href: "/direktur" },
-      { name: "Rekap Absensi", icon: FiFileText, href: "/direktur/rekap" },
+      { name: "Rekap Santri", icon: FiFileText, href: "/direktur/rekap-santri" },
+      { name: "Rekap Pegawai", icon: FiFileText, href: "/direktur/rekap-pegawai" },
+      { name: "Rekap Guru", icon: FiFileText, href: "/direktur/rekap-guru" },
+      { name: "Rekap Musyrif", icon: FiFileText, href: "/direktur/rekap-musyrif" },
+
+
     ],
   },
 ];
