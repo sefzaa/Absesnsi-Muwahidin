@@ -63,7 +63,7 @@ export default function KehadiranSantriPage() {
     const [activeFilter, setActiveFilter] = useState('all');
     
     const [rekapFilter, setRekapFilter] = useState({ bulan: new Date().getMonth() + 1, tahun: new Date().getFullYear() });
-    const [isPrinting, setIsPrinting] = useState(false);
+    const [printingTingkat, setPrintingTingkat] = useState(null); // 'mts', 'ma', atau null
     const [scriptsLoaded, setScriptsLoaded] = useState(false);
     
     const API_BASE_URL = process.env.NEXT_PUBLIC_BACKEND_URL || 'http://localhost:3000';
@@ -108,27 +108,42 @@ export default function KehadiranSantriPage() {
     const openModal = (santri) => { setSelectedSantri(santri); setIsModalOpen(true); };
     const closeModal = () => setIsModalOpen(false);
     
-    const handleCetakRekap = async () => {
+    const handleCetakRekap = async (tingkat) => {
         if (!scriptsLoaded) { alert("Perpustakaan PDF sedang dimuat, coba lagi sesaat."); return; }
-        setIsPrinting(true);
+        setPrintingTingkat(tingkat);
         try {
             const { bulan, tahun } = rekapFilter;
-            const response = await fetch(`${API_BASE_URL}/api/kehadiran-santri/rekap-cetak?bulan=${bulan}&tahun=${tahun}`, { headers: { 'x-access-token': token } });
+            const response = await fetch(`${API_BASE_URL}/api/kehadiran-santri/rekap-cetak?bulan=${bulan}&tahun=${tahun}&tingkat=${tingkat}`, { headers: { 'x-access-token': token } });
             if (!response.ok) { const errData = await response.json(); throw new Error(errData.message || 'Gagal mengambil data rekap'); }
             const { meta, data: rekapData } = await response.json();
-            if (Object.keys(rekapData).length === 0) { alert('Tidak ada data rekap untuk periode yang dipilih.'); return; }
+            if (Object.keys(rekapData).length === 0) { alert(`Tidak ada data rekap untuk periode dan tingkat ${tingkat.toUpperCase()} yang dipilih.`); return; }
             const { jsPDF } = window.jspdf;
             const doc = new jsPDF({ orientation: 'landscape' });
             let isFirstPage = true;
+            const title = `Rekap Presensi Harian Santri ${tingkat.toUpperCase()}`;
+            
             for (const namaKelas in rekapData) {
                 if (!isFirstPage) doc.addPage();
                 isFirstPage = false;
+
+                                // --- PERUBAHAN DIMULAI DI SINI ---
+                let namaKelasTampilan = namaKelas; // Gunakan nama asli sebagai default
+                if (tingkat === 'ma') {
+                    if (namaKelas.includes('4')) {
+                        namaKelasTampilan = namaKelas.replace('4', '1');
+                    } else if (namaKelas.includes('5')) {
+                        namaKelasTampilan = namaKelas.replace('5', '2');
+                    } else if (namaKelas.includes('6')) {
+                        namaKelasTampilan = namaKelas.replace('6', '3');
+                    }
+                }
+                // --- PERUBAHAN SELESAI DI SINI ---
                 
                 doc.setFontSize(16);
-                doc.text('Rekap Presensi Harian Santri', doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+                doc.text(title, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
                 doc.setFontSize(12);
-                doc.text(`Kelas: ${namaKelas}`, 14, 22);
-                doc.text(`Periode: ${meta.bulan} ${meta.tahun}`, doc.internal.pageSize.getWidth() - 14, 22, { align: 'right' });
+                doc.text(`Kelas: ${namaKelasTampilan}`, 14, 22); 
+                doc.text(`Periode: ${meta.bulan} ${meta.tahun}`, doc.internal.pageSize.getWidth() - 14, 22, { align: 'right' });
 
                 const days = Array.from({ length: meta.daysInMonth }, (_, i) => (i + 1).toString());
                 const head = [['No', 'Nama Santri', 'H', 'I', 'S', 'A', '%', 'Kegiatan', ...days]];
@@ -152,12 +167,12 @@ export default function KehadiranSantriPage() {
                 });
                 doc.autoTable({ head, body, startY: 30, theme: 'grid', headStyles: { fillColor: [34, 113, 77], halign: 'center' }, styles: { fontSize: 6, cellPadding: 1, halign: 'center', valign: 'middle' }, columnStyles: { 0: { cellWidth: 7 }, 1: { halign: 'left', cellWidth: 35 }, 2: { cellWidth: 5 }, 3: { cellWidth: 5 }, 4: { cellWidth: 5 }, 5: { cellWidth: 5 }, 6: { cellWidth: 8 }, 7: { halign: 'left', cellWidth: 30 } }, didDrawPage: (data) => doc.setFontSize(8).text('H: Hadir, I: Izin, S: Sakit, A: Alpa, -: Tidak Ada Data', data.settings.margin.left, doc.internal.pageSize.getHeight() - 10) });
             }
-            doc.save(`rekap-kegiatan-${meta.bulan}-${meta.tahun}.pdf`);
+            doc.save(`rekap-kegiatan-${tingkat.toUpperCase()}-${meta.bulan}-${meta.tahun}.pdf`);
         } catch (error) {
             console.error('Error printing rekap:', error);
             alert(`Gagal mencetak rekapitulasi: ${error.message}`);
         } finally {
-            setIsPrinting(false);
+            setPrintingTingkat(null);
         }
     };
     const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -174,9 +189,13 @@ export default function KehadiranSantriPage() {
                         <select name="tahun" value={rekapFilter.tahun} onChange={handleRekapFilterChange} className="w-full sm:w-auto rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500 text-gray-900">
                             {years.map(year => <option key={year} value={year}>{year}</option>)}
                         </select>
-                        <button onClick={handleCetakRekap} disabled={isPrinting || !scriptsLoaded} className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 disabled:bg-gray-400 disabled:cursor-wait">
-                            {isPrinting ? <IconLoader /> : <IconPrinter />}
-                            <span className="sm:hidden md:inline">Cetak Rekap</span>
+                        <button onClick={() => handleCetakRekap('mts')} disabled={printingTingkat !== null || !scriptsLoaded} className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-md hover:bg-cyan-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-cyan-500 disabled:bg-gray-400 disabled:cursor-wait">
+                            {printingTingkat === 'mts' ? <IconLoader /> : <IconPrinter />}
+                            <span className="sm:hidden md:inline">Cetak Rekap MTS</span>
+                        </button>
+                        <button onClick={() => handleCetakRekap('ma')} disabled={printingTingkat !== null || !scriptsLoaded} className="flex-shrink-0 flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-md hover:bg-teal-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-teal-500 disabled:bg-gray-400 disabled:cursor-wait">
+                            {printingTingkat === 'ma' ? <IconLoader /> : <IconPrinter />}
+                            <span className="sm:hidden md:inline">Cetak Rekap MA</span>
                         </button>
                     </div>
                 </div>

@@ -7,7 +7,38 @@ import { FiDownload, FiEye, FiX, FiLoader, FiCalendar, FiUsers, FiPrinter } from
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
 
-// --- Komponen ProgressBar (Dikembalikan) ---
+// --- Komponen Modal Notifikasi (BARU) ---
+const NotificationModal = ({ isOpen, onClose, title, message }) => {
+    return (
+        <Transition appear show={isOpen} as={Fragment}>
+            <Dialog as="div" className="relative z-50" onClose={onClose}>
+                <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0" enterTo="opacity-100" leave="ease-in duration-200" leaveFrom="opacity-100" leaveTo="opacity-0">
+                    <div className="fixed inset-0 bg-black/30 backdrop-blur-sm" />
+                </Transition.Child>
+                <div className="fixed inset-0 overflow-y-auto">
+                    <div className="flex min-h-full items-center justify-center p-4 text-center">
+                        <Transition.Child as={Fragment} enter="ease-out duration-300" enterFrom="opacity-0 scale-95" enterTo="opacity-100 scale-100" leave="ease-in duration-200" leaveFrom="opacity-100 scale-100" leaveTo="opacity-0 scale-95">
+                            <Dialog.Panel className="w-full max-w-md transform overflow-hidden rounded-2xl bg-white p-6 text-left align-middle shadow-xl transition-all">
+                                <Dialog.Title as="h3" className="text-lg font-bold leading-6 text-gray-900">{title}</Dialog.Title>
+                                <div className="mt-2">
+                                    <p className="text-sm text-gray-600">{message}</p>
+                                </div>
+                                <div className="mt-5 sm:mt-6">
+                                    <button type="button" className="inline-flex w-full justify-center rounded-md bg-blue-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500" onClick={onClose}>
+                                        Tutup
+                                    </button>
+                                </div>
+                            </Dialog.Panel>
+                        </Transition.Child>
+                    </div>
+                </div>
+            </Dialog>
+        </Transition>
+    );
+};
+
+
+// --- Komponen ProgressBar ---
 const ProgressBar = ({ percentage }) => {
     const bgColor = percentage >= 80 ? 'bg-green-500' : percentage >= 60 ? 'bg-yellow-500' : 'bg-red-500';
     return (
@@ -17,7 +48,7 @@ const ProgressBar = ({ percentage }) => {
     );
 };
 
-// --- Komponen Modal (Dikembalikan ke Tampilan Awal) ---
+// --- Komponen Modal Detail ---
 const DetailModal = ({ santri, onClose, periode }) => {
     if (!santri) return null;
 
@@ -91,8 +122,18 @@ export default function RekapSantriPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [modalSantri, setModalSantri] = useState(null);
     const [activeKelasId, setActiveKelasId] = useState(null);
+    const [isDownloadingTingkat, setIsDownloadingTingkat] = useState(null);
+    const [notification, setNotification] = useState({ isOpen: false, title: '', message: '' });
 
     const API_BASE_URL = `${process.env.NEXT_PUBLIC_BACKEND_URL}/api`;
+
+    const showNotification = (title, message) => {
+        setNotification({ isOpen: true, title, message });
+    };
+
+    const closeNotification = () => {
+        setNotification({ isOpen: false, title: '', message: '' });
+    };
 
     const apiFetch = useCallback(async (endpoint, options = {}) => {
         const url = `${API_BASE_URL}${endpoint.startsWith('/') ? endpoint : `/${endpoint}`}`;
@@ -118,20 +159,23 @@ export default function RekapSantriPage() {
             }
         } catch (error) {
             console.error("Gagal memuat data rekap:", error);
+            showNotification("Gagal Memuat Data", error.message || "Terjadi kesalahan saat mengambil data dari server.");
         } finally {
             setIsLoading(false);
         }
     }, [apiFetch, filters, activeKelasId]);
 
     useEffect(() => { if (token) { fetchData(); } }, [token, filters]);
+    
     const handleFilterChange = (e) => { setFilters(prev => ({ ...prev, [e.target.name]: e.target.value })); setActiveKelasId(null); };
+    
     const periodeText = new Date(filters.tahun, filters.bulan - 1).toLocaleString('id-ID', { month: 'long', year: 'numeric' });
+    
     const activeKelasData = useMemo(() => {
         if (!activeKelasId) return null;
         return rekapData.find(kelas => kelas.id_kelas_sekolah === activeKelasId);
     }, [rekapData, activeKelasId]);
 
-    // --- Fungsi Download PDF per Santri (Format Detail Dikembalikan) ---
     const downloadPdfSantri = (santri, kelasInfo) => {
         const doc = new jsPDF();
         doc.setFontSize(16);
@@ -161,64 +205,78 @@ export default function RekapSantriPage() {
         doc.save(`rekap_detail_${santri.nama.replace(/\s+/g, '_')}_${periodeText}.pdf`);
     };
     
-    // --- Fungsi Download PDF Matriks per Kelas (Nama Diperbaiki) ---
-    const downloadRekapKelas = (kelas) => {
-        if (!kelas) return;
+    const downloadRekapTingkat = (tingkat) => {
+        setIsDownloadingTingkat(tingkat);
+        
+        const tingkatLabel = tingkat.toUpperCase();
+        const kelasIds = tingkat === 'mts' ? [1, 2, 3] : [4, 5, 6];
+        const filteredKelas = rekapData.filter(k => kelasIds.includes(k.id_kelas));
+        
+        if (filteredKelas.length === 0) {
+            showNotification("Data Tidak Ditemukan", `Tidak ada data rekap untuk jenjang ${tingkatLabel} pada periode yang dipilih.`);
+            setIsDownloadingTingkat(null);
+            return;
+        }
+
         const doc = new jsPDF({ orientation: 'landscape' });
-        doc.setFontSize(16);
-        doc.text(`Rekap Kehadiran Kelas: ${kelas.nama_kelas_sekolah}`, 14, 22);
-        doc.setFontSize(11);
-        doc.setTextColor(100);
-        doc.text(`Periode: ${periodeText}`, 14, 30);
 
-        const daysInMonth = new Date(filters.tahun, filters.bulan, 0).getDate();
-        const dateColumns = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
-        const head = [
-            [{ content: 'Nama Santri', rowSpan: 2, styles: { valign: 'middle'} }, { content: 'Performa', rowSpan: 2, styles: { valign: 'middle'} }, { content: 'Jam Pelajaran', rowSpan: 2, styles: { valign: 'middle'} }, { content: 'Tanggal', colSpan: daysInMonth, styles: { halign: 'center' } }],
-            dateColumns
-        ];
+        filteredKelas.forEach((kelas, index) => {
+            doc.setFontSize(16);
+            doc.text(`Rekap Kehadiran ${tingkatLabel} - Kelas: ${kelas.nama_kelas_sekolah}`, doc.internal.pageSize.getWidth() / 2, 15, { align: 'center' });
+            doc.setFontSize(11);
+            doc.setTextColor(100);
+            doc.text(`Periode: ${periodeText}`, 14, 22);
 
-        const body = [];
-        kelas.santri.forEach(santri => {
-            const { hadir, sakit, izin, alpa, percentage } = santri.performance;
-            const performaText = `${percentage}% (H:${hadir} S:${sakit} I:${izin} A:${alpa})`;
-            
-            kelas.master_jp.forEach((jp, jpIndex) => {
-                const row = [];
-                if (jpIndex === 0) {
-                    row.push({ content: santri.nama, rowSpan: kelas.master_jp.length });
-                    row.push({ content: performaText, rowSpan: kelas.master_jp.length });
-                }
-                row.push(jp.nama_jam);
+            const daysInMonth = new Date(filters.tahun, filters.bulan, 0).getDate();
+            const dateColumns = Array.from({ length: daysInMonth }, (_, i) => String(i + 1));
+            const head = [
+                [{ content: 'Nama Santri', rowSpan: 2, styles: { valign: 'middle'} }, { content: 'Performa', rowSpan: 2, styles: { valign: 'middle'} }, { content: 'Jam Pelajaran', rowSpan: 2, styles: { valign: 'middle'} }, { content: 'Tanggal', colSpan: daysInMonth, styles: { halign: 'center' } }],
+                dateColumns
+            ];
 
-                for (let i = 1; i <= daysInMonth; i++) {
-                    const date = `${filters.tahun}-${String(filters.bulan).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-                    const status = santri.history_matrix[date]?.[jp.id_jam_pelajaran] || '-';
-                    const initial = status.charAt(0);
+            const body = [];
+            kelas.santri.forEach(santri => {
+                const { hadir, sakit, izin, alpa, percentage } = santri.performance;
+                const performaText = `${percentage}% (H:${hadir} S:${sakit} I:${izin} A:${alpa})`;
+                
+                kelas.master_jp.forEach((jp, jpIndex) => {
+                    const row = [];
+                    if (jpIndex === 0) {
+                        row.push({ content: santri.nama, rowSpan: kelas.master_jp.length });
+                        row.push({ content: performaText, rowSpan: kelas.master_jp.length });
+                    }
+                    row.push(jp.nama_jam);
 
-                    let cellStyle = { halign: 'center', fontSize: 8 };
-                    if(status === 'Hadir') cellStyle.textColor = [0, 150, 0];
-                    if(status === 'Sakit') cellStyle.textColor = [255, 165, 0];
-                    if(status === 'Izin') cellStyle.textColor = [0, 0, 255];
-                    if(status === 'Alpa') cellStyle.textColor = [255, 0, 0];
+                    for (let i = 1; i <= daysInMonth; i++) {
+                        const date = `${filters.tahun}-${String(filters.bulan).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
+                        const status = santri.history_matrix[date]?.[jp.id_jam_pelajaran] || '-';
+                        const initial = status.charAt(0);
 
-                    row.push({ content: initial, styles: cellStyle });
-                }
-                body.push(row);
+                        let cellStyle = { halign: 'center', fontSize: 8 };
+                        if(status === 'Hadir') cellStyle.textColor = [0, 150, 0];
+                        if(status === 'Sakit') cellStyle.textColor = [255, 165, 0];
+                        if(status === 'Izin') cellStyle.textColor = [0, 0, 255];
+                        if(status === 'Alpa') cellStyle.textColor = [255, 0, 0];
+                        row.push({ content: initial, styles: cellStyle });
+                    }
+                    body.push(row);
+                });
             });
+
+            autoTable(doc, {
+                head: head, body: body, startY: 30, theme: 'grid',
+                didParseCell: (data) => { if (data.cell.raw.rowSpan) { data.cell.styles.valign = 'middle'; } },
+                styles: { fontSize: 8, cellPadding: 1 },
+                headStyles: { fontSize: 8, fillColor: [41, 128, 185], textColor: [255, 255, 255], halign: 'center' }
+            });
+
+            if (index < filteredKelas.length - 1) {
+                doc.addPage();
+            }
         });
 
-        autoTable(doc, {
-            head: head,
-            body: body,
-            startY: 40,
-            theme: 'grid',
-            didParseCell: function(data) { if (data.cell.raw.rowSpan) { data.cell.styles.valign = 'middle'; } },
-            styles: { fontSize: 8, cellPadding: 1, },
-            headStyles: { fontSize: 8, fillColor: [41, 128, 185], textColor: [255, 255, 255], halign: 'center' }
-        });
-
-        doc.save(`rekap_matriks_${kelas.nama_kelas_sekolah.replace(/\s+/g, '_')}_${periodeText}.pdf`);
+        doc.save(`rekap_sekolah_${tingkatLabel}_${periodeText.replace(/\s+/g, '_')}.pdf`);
+        setIsDownloadingTingkat(null);
     };
 
     const years = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - i);
@@ -226,7 +284,9 @@ export default function RekapSantriPage() {
 
     return (
         <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+            <NotificationModal isOpen={notification.isOpen} onClose={closeNotification} title={notification.title} message={notification.message} />
             <DetailModal santri={modalSantri} onClose={() => setModalSantri(null)} periode={periodeText} />
+            
             <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mb-6">
                 <div>
                     <h2 className="text-xl font-bold text-gray-800">Rekap Kehadiran Santri</h2>
@@ -240,6 +300,17 @@ export default function RekapSantriPage() {
                         {years.map(y => <option key={y} value={y}>{y}</option>)}
                     </select>
                 </div>
+            </div>
+
+            <div className="flex flex-col sm:flex-row gap-3 mb-6 border-b pb-4">
+                 <button onClick={() => downloadRekapTingkat('mts')} disabled={isDownloadingTingkat !== null || isLoading} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-cyan-600 text-white rounded-md font-semibold hover:bg-cyan-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                     {isDownloadingTingkat === 'mts' ? <FiLoader className="animate-spin"/> : <FiPrinter />}
+                     <span>Download Rekap MTS</span>
+                 </button>
+                 <button onClick={() => downloadRekapTingkat('ma')} disabled={isDownloadingTingkat !== null || isLoading} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-teal-600 text-white rounded-md font-semibold hover:bg-teal-700 disabled:bg-gray-400 disabled:cursor-not-allowed">
+                    {isDownloadingTingkat === 'ma' ? <FiLoader className="animate-spin"/> : <FiPrinter />}
+                     <span>Download Rekap MA</span>
+                 </button>
             </div>
 
             {isLoading ? (
@@ -261,13 +332,6 @@ export default function RekapSantriPage() {
 
                     {activeKelasData && (
                         <div>
-                             <div className="flex justify-end mb-4">
-                                <button onClick={() => downloadRekapKelas(activeKelasData)} className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2 bg-green-600 text-white rounded-md font-semibold hover:bg-green-700">
-                                    <FiPrinter /> <span>Download Rekap Kelas Ini</span>
-                                </button>
-                             </div>
-                            
-                            {/* --- Tampilan Tabel dan Kartu Dikembalikan Seperti Semula --- */}
                             <div className="hidden md:block overflow-x-auto">
                                 <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">

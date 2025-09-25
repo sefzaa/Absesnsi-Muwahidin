@@ -5,7 +5,7 @@ import { AuthProvider } from './AuthContext';
 import './globals.css';
 
 export const metadata = {
-  title: "SIM Pesantren",
+  title: "myDM",
   description: "Sistem Informasi Manajemen Pondok Pesantren",
 };
 

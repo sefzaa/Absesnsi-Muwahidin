@@ -1,9 +1,12 @@
+// controllers/rekapGuru.js
 const db = require('../models');
 const { Op } = require('sequelize');
 const Pegawai = db.Pegawai;
 const Jabatan = db.Jabatan;
-const AbsenGuru = db.AbsenGuru;
+const AbsenSekolah = db.AbsenSekolah;
 const JamPelajaran = db.JamPelajaran;
+const KelasSekolah = db.KelasSekolah;
+const Kelas = db.Kelas; // Impor model Kelas
 
 // Mengambil semua pegawai dengan jabatan 'Guru'
 exports.getAllGuru = async (req, res) => {
@@ -37,30 +40,24 @@ exports.getRekapGuruDetail = async (req, res) => {
         const startDate = new Date(tahun, bulan - 1, 1);
         const endDate = new Date(tahun, bulan, 0);
 
-        const absensi = await AbsenGuru.findAll({
+        const absensi = await AbsenSekolah.findAll({
             where: {
                 id_pegawai: id_pegawai,
-                tanggal: {
-                    [Op.between]: [startDate, endDate]
-                }
+                tanggal: { [Op.between]: [startDate, endDate] }
             },
             include: [{
                 model: JamPelajaran,
                 attributes: ['nama_jam'],
                 required: true
             }],
-            attributes: ['tanggal', 'id_jam_pelajaran'], // Tambahkan id_jam_pelajaran
+            attributes: ['tanggal', 'id_jam_pelajaran'],
             order: [['tanggal', 'ASC']]
         });
 
-        // Proses data agar mudah di-render di frontend
         const rekapProses = absensi.reduce((acc, curr) => {
             const tanggal = curr.tanggal;
             const jam = curr.JamPelajaran.nama_jam;
-            
-            if (!acc[tanggal]) {
-                acc[tanggal] = [];
-            }
+            if (!acc[tanggal]) acc[tanggal] = [];
             acc[tanggal].push(jam);
             return acc;
         }, {});
@@ -78,7 +75,7 @@ exports.getRekapGuruDetail = async (req, res) => {
     }
 };
 
-// --- ▼▼▼ FUNGSI BARU: Untuk mengambil semua data rekap untuk download ▼▼▼ ---
+// --- FUNGSI INI DIREVISI UNTUK MENAMBAHKAN INFORMASI JENJANG ---
 exports.getRekapUntukSemuaGuru = async (req, res) => {
     const { bulan, tahun } = req.query;
 
@@ -90,39 +87,52 @@ exports.getRekapUntukSemuaGuru = async (req, res) => {
         const startDate = new Date(tahun, bulan - 1, 1);
         const endDate = new Date(tahun, bulan, 0);
 
-        // 1. Ambil semua guru
         const gurus = await Pegawai.findAll({
             attributes: ['id_pegawai', 'nama', 'nip'],
-            include: [{
-                model: Jabatan,
-                where: { nama_jabatan: 'Guru' },
-                attributes: []
-            }],
+            include: [{ model: Jabatan, where: { nama_jabatan: 'Guru' }, attributes: [] }],
             order: [['nama', 'ASC']]
         });
 
-        // 2. Ambil semua jam pelajaran
         const jamPelajaran = await JamPelajaran.findAll({
             attributes: ['id_jam_pelajaran', 'nama_jam'],
             order: [['jam_mulai', 'ASC']]
         });
 
-        // 3. Ambil semua data absensi guru pada periode yang dipilih
-        const absensi = await AbsenGuru.findAll({
+        const absensi = await AbsenSekolah.findAll({
             where: {
-                tanggal: {
-                    [Op.between]: [startDate, endDate]
-                }
+                tanggal: { [Op.between]: [startDate, endDate] },
+                id_pegawai: { [Op.not]: null }
             },
+            include: [{
+                model: KelasSekolah,
+                required: true,
+                attributes: ['id_kelas_sekolah'],
+                include: [{
+                    model: Kelas,
+                    as: 'tingkatan', // <-- PERBAIKAN 1: Menggunakan alias 'tingkatan' sesuai log error
+                    required: true,
+                    attributes: ['id_kelas']
+                }]
+            }],
             attributes: ['id_pegawai', 'id_jam_pelajaran', 'tanggal'],
+            distinct: true,
         });
 
-        // 4. Proses dan strukturkan data absensi untuk efisiensi
-        const rekapData = absensi.reduce((acc, curr) => {
-            const key = `${curr.id_pegawai}-${curr.id_jam_pelajaran}-${curr.tanggal}`;
-            acc[key] = 'H'; // Tandai sebagai Hadir
-            return acc;
-        }, {});
+        const rekapData = absensi.map(absen => {
+            // <-- PERBAIKAN 2: Mengakses data menggunakan alias 'tingkatan'
+            const idKelas = absen.KelasSekolah?.tingkatan?.id_kelas;
+            let tingkat = null;
+            if (idKelas) {
+                tingkat = (idKelas >= 1 && idKelas <= 3) ? 'mts' : (idKelas >= 4 && idKelas <= 6) ? 'ma' : null;
+            }
+            
+            return {
+                id_pegawai: absen.id_pegawai,
+                id_jam_pelajaran: absen.id_jam_pelajaran,
+                tanggal: absen.tanggal,
+                tingkat: tingkat
+            };
+        }).filter(item => item.tingkat !== null);
 
         res.status(200).json({ gurus, jamPelajaran, rekapData });
 

@@ -159,20 +159,34 @@ exports.getAbsensiSantri = async (req, res) => {
   }
 };
 
-// REVISI BESAR: Fungsi rekap cetak ditambahkan kolom HISA dan Performa
+// REVISI BESAR: Fungsi rekap cetak difilter berdasarkan tingkat (MTS/MA)
 exports.getRekapUntukCetak = async (req, res) => {
     try {
-        const { bulan, tahun } = req.query;
+        const { bulan, tahun, tingkat } = req.query;
         const adminJenisKelamin = req.user.jenis_kelamin;
-        if (!bulan || !tahun) return res.status(400).json({ message: 'Parameter bulan dan tahun diperlukan.' });
+        if (!bulan || !tahun || !tingkat) return res.status(400).json({ message: 'Parameter bulan, tahun, dan tingkat diperlukan.' });
         
         const startDate = new Date(tahun, bulan - 1, 1);
         const endDate = new Date(tahun, bulan, 0);
         const daysInMonth = endDate.getDate();
 
+        let kelasFilter;
+        if (tingkat === 'mts') {
+            kelasFilter = { [Op.in]: ['Kelas 1', 'Kelas 2', 'Kelas 3'] };
+        } else if (tingkat === 'ma') {
+            kelasFilter = { [Op.in]: ['Kelas 4', 'Kelas 5', 'Kelas 6'] };
+        } else {
+            return res.status(400).json({ message: 'Parameter tingkat tidak valid. Gunakan "mts" atau "ma".' });
+        }
+
         const kelasDenganSantri = await Kelas.findAll({
             include: [{ model: Santri, as: 'Santris', where: { jenis_kelamin: adminJenisKelamin }, required: true, attributes: ['id_santri', 'nama'] }],
-            where: { nama_kelas: { [Op.ne]: 'Alumni' } },
+            where: { 
+                nama_kelas: { 
+                    ...kelasFilter,
+                    [Op.ne]: 'Alumni' 
+                } 
+            },
             order: [['id_kelas', 'ASC'], [{ model: Santri, as: 'Santris' }, 'nama', 'ASC']]
         });
 

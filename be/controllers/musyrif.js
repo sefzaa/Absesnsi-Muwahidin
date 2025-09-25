@@ -1,10 +1,11 @@
-// file: controllers/musyrif.controller.js
+// file: controllers/musyrif.js
 const { Kelas, Santri, Pegawai, Jabatan, sequelize } = require('../models');
 
 // 1. Mengambil semua kelas beserta data musyrif dan jumlah santri
 exports.getKelasData = async (req, res) => {
     try {
-        const adminJenisKelamin = req.user.jenis_kelamin; // 'Putra' atau 'Putri'
+        const adminJenisKelamin = req.user.jenis_kelamin;
+        const targetPegawaiJenisKelamin = adminJenisKelamin === 'Putra' ? 'Laki-laki' : 'Perempuan';
 
         const classes = await Kelas.findAll({
             where: {
@@ -14,13 +15,13 @@ exports.getKelasData = async (req, res) => {
                 model: Pegawai,
                 as: 'musyrifs',
                 attributes: ['id_pegawai', 'nama'],
+                where: { jenis_kelamin: targetPegawaiJenisKelamin },
+                required: false,
                 through: { attributes: [] }
             }],
-            order: [['nama_kelas', 'ASC']]
+            order: [['id_kelas', 'ASC']]
         });
 
-        // Query ke tabel 'santri'
-        // TIDAK PERLU MAPPING KARENA TABEL 'santri' MENGGUNAKAN 'Putra'/'Putri'
         const santriCounts = await Santri.findAll({
             where: {
                 status_aktif: true,
@@ -41,7 +42,7 @@ exports.getKelasData = async (req, res) => {
         const result = classes.map(kelas => ({
             id_kelas: kelas.id_kelas,
             nama_kelas: kelas.nama_kelas,
-            musyrifs: kelas.musyrifs,
+            musyrifs: kelas.musyrifs, 
             jumlah_santri: santriCountMap[kelas.id_kelas] || 0
         }));
 
@@ -52,14 +53,11 @@ exports.getKelasData = async (req, res) => {
     }
 };
 
-
 // 2. Mengambil santri aktif berdasarkan ID Kelas
 exports.getSantriByKelas = async (req, res) => {
     try {
-        const adminJenisKelamin = req.user.jenis_kelamin; // 'Putra' atau 'Putri'
+        const adminJenisKelamin = req.user.jenis_kelamin;
 
-        // Query ke tabel 'santri'
-        // TIDAK PERLU MAPPING KARENA TABEL 'santri' MENGGUNAKAN 'Putra'/'Putri'
         const santri = await Santri.findAll({
             where: {
                 id_kelas: req.params.id_kelas,
@@ -76,19 +74,16 @@ exports.getSantriByKelas = async (req, res) => {
     }
 };
 
-// 3. Mengambil daftar pegawai yang jabatannya Musyrif (untuk dropdown)
+// 3. Mengambil daftar pegawai yang jabatannya Musyrif
 exports.getAvailableMusyrif = async (req, res) => {
     try {
-        const adminJenisKelamin = req.user.jenis_kelamin; // 'Putra' atau 'Putri'
-
-        // --- ▼▼▼ PERBAIKAN DI SINI ▼▼▼ ---
-        // PERLU MAPPING KARENA TABEL 'pegawai' MENGGUNAKAN 'Laki-laki'/'Perempuan'
+        const adminJenisKelamin = req.user.jenis_kelamin;
         const targetPegawaiJenisKelamin = adminJenisKelamin === 'Putra' ? 'Laki-laki' : 'Perempuan';
 
         const musyrifs = await Pegawai.findAll({
             attributes: ['id_pegawai', 'nama'],
             where: { 
-                jenis_kelamin: targetPegawaiJenisKelamin // Gunakan hasil mapping
+                jenis_kelamin: targetPegawaiJenisKelamin
             },
             include: {
                 model: Jabatan,
@@ -97,7 +92,6 @@ exports.getAvailableMusyrif = async (req, res) => {
             },
             order: [['nama', 'ASC']]
         });
-        // --- ▲▲▲ AKHIR PERBAIKAN ---
 
         res.status(200).json(musyrifs);
     } catch (error) {
@@ -105,25 +99,47 @@ exports.getAvailableMusyrif = async (req, res) => {
     }
 };
 
-// 4. Update/assign musyrif ke sebuah kelas (TIDAK ADA PERUBAHAN)
+// 4. Update/assign musyrif ke sebuah kelas (LOGIKA DIPERBAIKI)
 exports.assignMusyrifToKelas = async (req, res) => {
     const { id_kelas } = req.params;
-    const { musyrifIds } = req.body;
+    const { musyrifIds } = req.body; // Ini adalah daftar ID baru dari frontend
     
     const t = await sequelize.transaction();
     try {
+        const adminJenisKelamin = req.user.jenis_kelamin;
+        const targetPegawaiJenisKelamin = adminJenisKelamin === 'Putra' ? 'Laki-laki' : 'Perempuan';
+
         const kelas = await Kelas.findByPk(id_kelas, { transaction: t });
         if (!kelas) {
             await t.rollback();
             return res.status(404).json({ message: "Kelas tidak ditemukan." });
         }
 
-        await kelas.setMusyrifs(musyrifIds, { transaction: t });
+        // --- ▼▼▼ PERBAIKAN UTAMA DI SINI ▼▼▼ ---
+        // 1. Ambil daftar musyrif SAAT INI yang jenis kelaminnya SAMA dengan admin
+        const currentMusyrifsOfSameGender = await kelas.getMusyrifs({
+            where: { jenis_kelamin: targetPegawaiJenisKelamin },
+            transaction: t
+        });
+        const idsToRemove = currentMusyrifsOfSameGender.map(m => m.id_pegawai);
+
+        // 2. HAPUS hanya asosiasi untuk musyrif dengan jenis kelamin yang sama
+        if (idsToRemove.length > 0) {
+            await kelas.removeMusyrifs(idsToRemove, { transaction: t });
+        }
+
+        // 3. TAMBAHKAN asosiasi untuk musyrif yang baru dipilih
+        if (musyrifIds && musyrifIds.length > 0) {
+            await kelas.addMusyrifs(musyrifIds, { transaction: t });
+        }
+        // --- ▲▲▲ AKHIR PERBAIKAN ---
         
         await t.commit();
         res.status(200).json({ message: "Musyrif berhasil diperbarui." });
     } catch (error) {
         await t.rollback();
+        // Sertakan pesan error asli untuk debugging
+        console.error('Error in assignMusyrifToKelas:', error); 
         res.status(500).json({ message: "Gagal memperbarui musyrif.", error: error.message });
     }
 };

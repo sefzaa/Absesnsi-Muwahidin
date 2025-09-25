@@ -23,9 +23,19 @@ exports.getRekap = async (req, res) => {
         const [santriList, jamPelajaranList, attendanceRecords] = await Promise.all([
             Santri.findAll({
                 where: { status_aktif: true, id_kelas_sekolah: { [Op.ne]: null } },
-                include: [{ model: KelasSekolah, as: 'kelasSekolah', attributes: ['id_kelas_sekolah', 'nama_kelas_sekolah'], required: true }],
+                include: [{
+                    model: KelasSekolah,
+                    as: 'kelasSekolah',
+                    // Menambahkan 'id_kelas' untuk membedakan jenjang MTS/MA di frontend
+                    attributes: ['id_kelas_sekolah', 'nama_kelas_sekolah', 'id_kelas'],
+                    required: true
+                }],
                 attributes: ['id_santri', 'nama'],
-                order: [[{ model: KelasSekolah, as: 'kelasSekolah' }, 'nama_kelas_sekolah', 'ASC'], ['nama', 'ASC']]
+                order: [
+                    [{ model: KelasSekolah, as: 'kelasSekolah' }, 'id_kelas', 'ASC'],
+                    [{ model: KelasSekolah, as: 'kelasSekolah' }, 'nama_kelas_sekolah', 'ASC'],
+                    ['nama', 'ASC']
+                ]
             }),
             JamPelajaran.findAll({ order: [['jam_mulai', 'ASC']] }),
             AbsenSekolah.findAll({
@@ -58,9 +68,16 @@ exports.getRekap = async (req, res) => {
             const s = santri.toJSON();
             const kelasId = s.kelasSekolah.id_kelas_sekolah;
             const namaKelas = s.kelasSekolah.nama_kelas_sekolah;
+            const idKelasDasar = s.kelasSekolah.id_kelas; // Mengambil id_kelas dasar
 
             if (!rekapByClass[kelasId]) {
-                rekapByClass[kelasId] = { id_kelas_sekolah: kelasId, nama_kelas_sekolah: namaKelas, santri: [], master_jp: jamPelajaranList };
+                rekapByClass[kelasId] = {
+                    id_kelas_sekolah: kelasId,
+                    nama_kelas_sekolah: namaKelas,
+                    id_kelas: idKelasDasar, // Menyimpan id_kelas dasar
+                    santri: [],
+                    master_jp: jamPelajaranList
+                };
             }
 
             const historyList = attendanceMap.get(s.id_santri) || [];
