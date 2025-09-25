@@ -34,7 +34,7 @@ const NotificationModal = ({ isOpen, onClose, title, message }) => (
 );
 
 // Komponen untuk Modal Rekap Detail
-const RekapModal = ({ isOpen, closeModal, guru, token }) => {
+const RekapModal = ({ isOpen, closeModal, guru, token, tingkat }) => {
     const [rekapData, setRekapData] = useState({});
     const [jamPelajaran, setJamPelajaran] = useState([]);
     const [isLoading, setIsLoading] = useState(false);
@@ -43,18 +43,32 @@ const RekapModal = ({ isOpen, closeModal, guru, token }) => {
     const daysInMonth = (month, year) => new Date(year, month, 0).getDate();
     const tanggalList = Array.from({ length: daysInMonth(filter.bulan, filter.tahun) }, (_, i) => i + 1);
 
-    useEffect(() => { if (isOpen && guru) { fetchRekap(); } }, [isOpen, guru, filter]);
+    useEffect(() => {
+        if (!isOpen || !guru) return;
 
-    const fetchRekap = async () => {
-        setIsLoading(true); setError('');
-        try {
-            const response = await fetch(`${backendUrl}/api/rekap-guru/${guru.id_pegawai}?bulan=${filter.bulan}&tahun=${filter.tahun}`, { headers: { 'x-access-token': token } });
-            if (!response.ok) throw new Error('Gagal mengambil data rekap.');
-            const data = await response.json();
-            setRekapData(data.rekap || {});
-            setJamPelajaran(data.jamPelajaran || []);
-        } catch (err) { setError(err.message); } finally { setIsLoading(false); }
-    };
+        const fetchRekap = async () => {
+            setIsLoading(true);
+            setError('');
+            try {
+                let url = `${backendUrl}/api/rekap-guru/${guru.id_pegawai}?bulan=${filter.bulan}&tahun=${filter.tahun}`;
+                if (tingkat === 'MTS' || tingkat === 'MA') {
+                    url += `&tingkat=${tingkat.toLowerCase()}`;
+                }
+
+                const response = await fetch(url, { headers: { 'x-access-token': token } });
+                if (!response.ok) throw new Error('Gagal mengambil data rekap.');
+                const data = await response.json();
+                setRekapData(data.rekap || {});
+                setJamPelajaran(data.jamPelajaran || []);
+            } catch (err) {
+                setError(err.message);
+            } finally {
+                setIsLoading(false);
+            }
+        };
+
+        fetchRekap();
+    }, [isOpen, guru, filter, token, tingkat]);
     
     const formatDate = (day) => `${filter.tahun}-${String(filter.bulan).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 
@@ -102,8 +116,8 @@ const RekapModal = ({ isOpen, closeModal, guru, token }) => {
 // Komponen Utama Halaman
 export default function RekapGuruPage() {
     const { token } = useAuth();
-    const [gurus, setGurus] = useState([]); // Master list of all teachers
-    const [rekapDataAll, setRekapDataAll] = useState([]); // Attendance data for filtering
+    const [gurus, setGurus] = useState([]);
+    const [rekapDataAll, setRekapDataAll] = useState([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isDownloadingTingkat, setIsDownloadingTingkat] = useState(null);
     const [error, setError] = useState('');
@@ -112,9 +126,8 @@ export default function RekapGuruPage() {
     const [mainFilter, setMainFilter] = useState({ bulan: new Date().getMonth() + 1, tahun: new Date().getFullYear() });
     const [notification, setNotification] = useState({ isOpen: false, title: '', message: '' });
     const [pdfScriptsReady, setPdfScriptsReady] = useState(false);
-    const [activeSection, setActiveSection] = useState('Semua'); // State for active tab
+    const [activeSection, setActiveSection] = useState('Semua');
 
-    // Load PDF generation scripts
     useEffect(() => {
         const loadScript = (src, id) => new Promise((resolve, reject) => {
             if (document.getElementById(id)) { resolve(); return; }
@@ -133,7 +146,6 @@ export default function RekapGuruPage() {
             });
     }, []);
 
-    // Fetch master guru list and detailed rekap data when filter changes
     useEffect(() => {
         if (!token) return;
 
@@ -162,35 +174,35 @@ export default function RekapGuruPage() {
         fetchData();
     }, [token, mainFilter]);
 
-    // --- DIUBAH: Memoized calculation untuk memfilter DAN menambahkan jumlah hadir ---
     const displayGurus = useMemo(() => {
-        // 1. Identifikasi sesi mengajar unik untuk menghindari penghitungan ganda per santri
+        const filteredRekap = rekapDataAll.filter(rekap => {
+            if (activeSection === 'Semua') return true;
+            const tingkat = activeSection === 'MTS' ? 'mts' : 'ma';
+            return rekap.tingkat === tingkat;
+        });
+
         const uniqueSessions = new Set(
-            rekapDataAll.map(rekap => `${rekap.id_pegawai}|${rekap.id_jam_pelajaran}|${rekap.tanggal}`)
+            filteredRekap.map(rekap => `${rekap.id_pegawai}|${rekap.id_jam_pelajaran}|${rekap.tanggal}`)
         );
 
-        // 2. Hitung sesi unik ini untuk setiap guru
         const hadirCounts = {};
         uniqueSessions.forEach(sessionKey => {
             const teacherId = sessionKey.split('|')[0];
             hadirCounts[teacherId] = (hadirCounts[teacherId] || 0) + 1;
         });
 
-        // 3. Tambahkan properti 'hadir' ke setiap objek guru di master list
         const gurusWithCount = gurus.map(guru => ({
             ...guru,
             hadir: hadirCounts[guru.id_pegawai] || 0
         }));
 
-        // 4. Terapkan filter berdasarkan tab yang aktif
         if (activeSection === 'Semua') {
             return gurusWithCount;
         }
         
-        const tingkat = activeSection === 'MTS' ? 'mts' : 'ma';
         const relevantGuruIds = new Set(
             rekapDataAll
-                .filter(rekap => rekap.tingkat === tingkat)
+                .filter(rekap => rekap.tingkat === (activeSection === 'MTS' ? 'mts' : 'ma'))
                 .map(rekap => rekap.id_pegawai)
         );
         
@@ -199,10 +211,10 @@ export default function RekapGuruPage() {
     
     const handleViewClick = (guru) => { setSelectedGuru(guru); setIsModalOpen(true); };
 
-    // Function to handle PDF download remains the same
+    // --- DIUBAH: Fungsi download sekarang menyertakan jumlah hadir ---
     const handleDownloadTingkat = async (tingkat) => {
         if (!pdfScriptsReady) {
-            setNotification({ isOpen: true, title: "Harap Tunggu", message: "Library untuk download PDF sedang disiapkan. Mohon coba sesaat lagi." });
+            setNotification({ isOpen: true, title: "Harap Tunggu", message: "Library PDF sedang disiapkan." });
             return;
         }
         if (gurus.length === 0) {
@@ -223,6 +235,16 @@ export default function RekapGuruPage() {
                 setNotification({ isOpen: true, title: "Informasi", message: `Tidak ada data kehadiran guru untuk jenjang ${tingkat.toUpperCase()} pada periode ini.` });
                 return;
             }
+
+            // --- Logika Baru: Hitung kehadiran unik untuk PDF ---
+            const uniqueSessions = new Set(
+                filteredRekap.map(rekap => `${rekap.id_pegawai}|${rekap.id_jam_pelajaran}|${rekap.tanggal}`)
+            );
+            const hadirCounts = {};
+            uniqueSessions.forEach(sessionKey => {
+                const teacherId = sessionKey.split('|')[0];
+                hadirCounts[teacherId] = (hadirCounts[teacherId] || 0) + 1;
+            });
 
             const relevantGuruIds = [...new Set(filteredRekap.map(r => r.id_pegawai))];
             const relevantGurus = allGurus.filter(g => relevantGuruIds.includes(g.id_pegawai));
@@ -247,7 +269,7 @@ export default function RekapGuruPage() {
             doc.setFontSize(12);
             doc.text(`Periode: ${monthName} ${year}`, 14, 22);
 
-            const tableHead = [["Nama Guru", "Jam Pelajaran", ...Array.from({ length: daysInMonth }, (_, i) => String(i + 1))]];
+            const tableHead = [["Nama Guru", "Jam Pelajaran", "Total Hadir (JP)", ...Array.from({ length: daysInMonth }, (_, i) => String(i + 1))]];
             const tableBody = [];
 
             relevantGurus.forEach(guru => {
@@ -262,6 +284,9 @@ export default function RekapGuruPage() {
                             row.push({ content: guru.nama, rowSpan: guruJps.length, styles: { valign: 'middle' } });
                         }
                         row.push(jp.nama_jam);
+                        if (jpIndex === 0) {
+                            row.push({ content: hadirCounts[guru.id_pegawai] || 0, rowSpan: guruJps.length, styles: { valign: 'middle', halign: 'center' } });
+                        }
                         for (let day = 1; day <= daysInMonth; day++) {
                             const dateStr = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
                             const key = `${guru.id_pegawai}-${jp.id_jam_pelajaran}-${dateStr}`;
@@ -275,7 +300,7 @@ export default function RekapGuruPage() {
             doc.autoTable({
                 startY: 30, head: tableHead, body: tableBody, theme: 'grid',
                 headStyles: { fillColor: [41, 128, 185], textColor: 255, halign: 'center' },
-                columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' }, 1: { cellWidth: 25 } },
+                columnStyles: { 0: { cellWidth: 35, fontStyle: 'bold' }, 1: { cellWidth: 20 }, 2: { cellWidth: 15, fontStyle: 'bold' } },
                 styles: { fontSize: 7, cellPadding: 1.5, halign: 'center', minCellHeight: 5 },
             });
 
@@ -328,7 +353,6 @@ export default function RekapGuruPage() {
 
             {!isLoading && !error && (
             <>
-                {/* --- DIUBAH: Tampilan Desktop --- */}
                 <div className="hidden md:block">
                     <table className="min-w-full divide-y divide-gray-200">
                         <thead className="bg-gray-50">
@@ -354,7 +378,6 @@ export default function RekapGuruPage() {
                     </table>
                 </div>
 
-                {/* --- DIUBAH: Tampilan Mobile --- */}
                 <div className="md:hidden space-y-4">
                     {displayGurus.map(guru => (
                         <div key={guru.id_pegawai} className="bg-gray-50 p-4 rounded-lg shadow">
@@ -379,8 +402,7 @@ export default function RekapGuruPage() {
             </>
             )}
             
-            {selectedGuru && <RekapModal isOpen={isModalOpen} closeModal={() => setIsModalOpen(false)} guru={selectedGuru} token={token} />}
-            <NotificationModal isOpen={notification.isOpen} onClose={() => setNotification({ ...notification, isOpen: false })} title={notification.title} message={notification.message}/>
+            {selectedGuru && <RekapModal isOpen={isModalOpen} closeModal={() => setIsModalOpen(false)} guru={selectedGuru} token={token} tingkat={activeSection} />}
         </div>
     );
 }

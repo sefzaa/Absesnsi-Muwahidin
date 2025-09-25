@@ -27,10 +27,10 @@ exports.getAllGuru = async (req, res) => {
     }
 };
 
-// Mengambil data rekap absensi untuk satu guru berdasarkan bulan dan tahun
+// --- DIUBAH: Fungsi ini sekarang bisa menerima filter 'tingkat' ---
 exports.getRekapGuruDetail = async (req, res) => {
     const { id_pegawai } = req.params;
-    const { bulan, tahun } = req.query;
+    const { bulan, tahun, tingkat } = req.query; // Ambil 'tingkat' dari query
 
     if (!bulan || !tahun) {
         return res.status(400).send({ message: "Parameter bulan dan tahun diperlukan." });
@@ -40,16 +40,37 @@ exports.getRekapGuruDetail = async (req, res) => {
         const startDate = new Date(tahun, bulan - 1, 1);
         const endDate = new Date(tahun, bulan, 0);
 
+        const whereClause = {
+            id_pegawai: id_pegawai,
+            tanggal: { [Op.between]: [startDate, endDate] }
+        };
+
+        const includeClause = [{
+            model: JamPelajaran,
+            attributes: ['nama_jam'],
+            required: true
+        }];
+
+        // Jika ada filter tingkat, tambahkan join dan where clause yang sesuai
+        if (tingkat === 'mts' || tingkat === 'ma') {
+            const idKelasRange = tingkat === 'mts' ? { [Op.between]: [1, 3] } : { [Op.between]: [4, 6] };
+            includeClause.push({
+                model: KelasSekolah,
+                required: true,
+                attributes: [],
+                include: [{
+                    model: Kelas,
+                    as: 'tingkatan',
+                    required: true,
+                    attributes: [],
+                    where: { id_kelas: idKelasRange }
+                }]
+            });
+        }
+
         const absensi = await AbsenSekolah.findAll({
-            where: {
-                id_pegawai: id_pegawai,
-                tanggal: { [Op.between]: [startDate, endDate] }
-            },
-            include: [{
-                model: JamPelajaran,
-                attributes: ['nama_jam'],
-                required: true
-            }],
+            where: whereClause,
+            include: includeClause,
             attributes: ['tanggal', 'id_jam_pelajaran'],
             order: [['tanggal', 'ASC']]
         });
@@ -58,10 +79,13 @@ exports.getRekapGuruDetail = async (req, res) => {
             const tanggal = curr.tanggal;
             const jam = curr.JamPelajaran.nama_jam;
             if (!acc[tanggal]) acc[tanggal] = [];
-            acc[tanggal].push(jam);
+            if (!acc[tanggal].includes(jam)) { // Hindari duplikat jika ada
+                acc[tanggal].push(jam);
+            }
             return acc;
         }, {});
 
+        // Ambil semua jam pelajaran untuk header tabel modal
         const semuaJamPelajaran = await JamPelajaran.findAll({
             attributes: ['id_jam_pelajaran', 'nama_jam'],
             order: [['jam_mulai', 'ASC']]
@@ -75,7 +99,8 @@ exports.getRekapGuruDetail = async (req, res) => {
     }
 };
 
-// --- FUNGSI INI DIREVISI UNTUK MENAMBAHKAN INFORMASI JENJANG ---
+
+// Fungsi untuk mengambil semua rekap (tidak diubah)
 exports.getRekapUntukSemuaGuru = async (req, res) => {
     const { bulan, tahun } = req.query;
 
@@ -109,7 +134,7 @@ exports.getRekapUntukSemuaGuru = async (req, res) => {
                 attributes: ['id_kelas_sekolah'],
                 include: [{
                     model: Kelas,
-                    as: 'tingkatan', // <-- PERBAIKAN 1: Menggunakan alias 'tingkatan' sesuai log error
+                    as: 'tingkatan',
                     required: true,
                     attributes: ['id_kelas']
                 }]
@@ -119,7 +144,6 @@ exports.getRekapUntukSemuaGuru = async (req, res) => {
         });
 
         const rekapData = absensi.map(absen => {
-            // <-- PERBAIKAN 2: Mengakses data menggunakan alias 'tingkatan'
             const idKelas = absen.KelasSekolah?.tingkatan?.id_kelas;
             let tingkat = null;
             if (idKelas) {

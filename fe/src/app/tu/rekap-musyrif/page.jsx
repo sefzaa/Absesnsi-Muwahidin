@@ -180,18 +180,16 @@ export default function RekapMusyrifPage() {
             doc.setFontSize(16); doc.text(`Rekap Kehadiran Musyrif ${jenis_kelamin}`, 14, 15);
             doc.setFontSize(12); doc.text(`Periode: ${monthName} ${tahun}`, 14, 22);
 
-            const tableHead = [["Nama Musyrif", "Kegiatan", ...Array.from({ length: daysInMonth }, (_, i) => String(i + 1))]];
+            // --- DIUBAH: Menambahkan 'Total Hadir' ke header PDF ---
+            const tableHead = [["Nama Musyrif", "Kegiatan", "Total Hadir", ...Array.from({ length: daysInMonth }, (_, i) => String(i + 1))]];
             const tableBody = [];
 
             dataToDownload.forEach(musyrif => {
                 const musyrifKegiatan = new Set();
                 Object.keys(rekapData).forEach(key => {
                     if (key.startsWith(musyrif.id_pegawai)) {
-                        // --- PERBAIKAN LOGIKA PARSING NAMA KEGIATAN ---
-                        // Format kunci: [id_pegawai]-[nama_kegiatan]-[YYYY-MM-DD]
-                        // Karena id_pegawai mengandung '-', kita ekstrak dari belakang.
                         const parts = key.split('-');
-                        const dateStr = parts.slice(-3).join('-'); // Ekstrak tanggal "YYYY-MM-DD"
+                        const dateStr = parts.slice(-3).join('-');
                         const idAndKegiatan = key.substring(0, key.length - dateStr.length - 1);
                         const kegiatanName = idAndKegiatan.substring(musyrif.id_pegawai.length + 1);
                         musyrifKegiatan.add(kegiatanName);
@@ -207,6 +205,10 @@ export default function RekapMusyrifPage() {
                             row.push({ content: musyrif.nama, rowSpan: kegiatanList.length, styles: { valign: 'middle' } });
                         }
                         row.push(kg);
+                        // --- DIUBAH: Menambahkan sel 'Total Hadir' hanya di baris pertama ---
+                        if (kgIndex === 0) {
+                            row.push({ content: musyrif.performance.Hadir || 0, rowSpan: kegiatanList.length, styles: { valign: 'middle', halign: 'center' } });
+                        }
 
                         for (let day = 1; day <= daysInMonth; day++) {
                             const dateStr = `${tahun}-${String(bulan).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
@@ -218,7 +220,16 @@ export default function RekapMusyrifPage() {
                 }
             });
 
-            doc.autoTable({ startY: 30, head: tableHead, body: tableBody, theme: 'grid', headStyles: { fillColor: [41, 128, 185], textColor: 255 }, columnStyles: { 0: { cellWidth: 40, fontStyle: 'bold' }, 1: { cellWidth: 35 } }, styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' } });
+            // --- DIUBAH: Menyesuaikan columnStyles untuk kolom baru ---
+            doc.autoTable({ 
+                startY: 30, 
+                head: tableHead, 
+                body: tableBody, 
+                theme: 'grid', 
+                headStyles: { fillColor: [41, 128, 185], textColor: 255 }, 
+                columnStyles: { 0: { cellWidth: 35, fontStyle: 'bold' }, 1: { cellWidth: 30 }, 2: { cellWidth: 15, fontStyle: 'bold' } }, 
+                styles: { fontSize: 7, cellPadding: 1.5, halign: 'center' } 
+            });
             doc.save(`Rekap-Musyrif-${jenis_kelamin}-${monthName}-${tahun}.pdf`);
         } catch (err) { setNotification({ isOpen: true, title: "Download Gagal", message: err.message }); } finally { setIsDownloading(false); }
     };
