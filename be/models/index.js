@@ -15,7 +15,6 @@ fs.readdirSync(__dirname)
     db[model.name] = model;
   });
 
-db.JamPelajaran = require('./jamPelajaran.js')(sequelize, Sequelize);
 
 
 // ======================================================
